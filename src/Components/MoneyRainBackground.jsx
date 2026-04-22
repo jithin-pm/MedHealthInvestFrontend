@@ -2,6 +2,8 @@ import React, { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Float, OrbitControls, MeshDistortMaterial, Sphere, Environment } from '@react-three/drei'
 import * as THREE from 'three'
+import ErrorBoundary from './ErrorBoundary'
+import { Suspense } from 'react'
 
 /* ─────────────────── falling coins (instanced) ────────────────── */
 function FallingCoins({ count = 180 }) {
@@ -109,22 +111,26 @@ function Scene() {
 export default function MoneyRainBackground({ className = "" }) {
   return (
     <div className={`absolute inset-0 pointer-events-none opacity-80 ${className}`}>
-      <Canvas
-        camera={{ position: [0, 0, 12], fov: 45 }}
-        shadows
-        gl={{ antialias: true, alpha: true, stencil: false }}
-        dpr={[1, 2]}
-      >
-        <Scene />
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          autoRotate
-          autoRotateSpeed={0.4}
-          maxPolarAngle={Math.PI * 0.6}
-          minPolarAngle={Math.PI * 0.4}
-        />
-      </Canvas>
+      <ErrorBoundary>
+        <Canvas
+          camera={{ position: [0, 0, 12], fov: 45 }}
+          shadows
+          gl={{ antialias: true, alpha: true, stencil: false }}
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={null}>
+            <Scene />
+            <OrbitControls
+              enableZoom={false}
+              enablePan={false}
+              autoRotate
+              autoRotateSpeed={0.4}
+              maxPolarAngle={Math.PI * 0.6}
+              minPolarAngle={Math.PI * 0.4}
+            />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 }

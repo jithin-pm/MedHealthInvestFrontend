@@ -1,6 +1,8 @@
 import React from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Stars, Float } from '@react-three/drei';
+import ErrorBoundary from './ErrorBoundary';
+import { Suspense } from 'react';
 
 export default function AreaChartBackground({ className = "" }) {
   // Monthly portfolio growth data points (Jan → Jul)
@@ -46,37 +48,41 @@ export default function AreaChartBackground({ className = "" }) {
 
       {/* 3D Animation Layer */}
       <div className="absolute inset-0 z-0 pointer-events-none opacity-70">
-        <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-          <fog attach="fog" args={['#0d1a08', 3, 10]} />
-          <ambientLight intensity={0.5} />
-          <directionalLight position={[2, 5, 2]} intensity={1.5} color="#a3e635" />
-          <directionalLight position={[-2, -5, -2]} intensity={0.5} color="#ffffff" />
-          
-          {/* Floating Data Particles */}
-          <Stars radius={10} depth={50} count={1500} factor={3} saturation={0} fade speed={1.5} />
-          
-          {/* Abstract Floating Rings representing financial cycles */}
-          <Float speed={1.5} rotationIntensity={1} floatIntensity={1.5}>
-            <mesh position={[2, 0, -1]} scale={1.2} rotation={[Math.PI / 4, 0, 0]}>
-              <torusGeometry args={[1.5, 0.015, 16, 100]} />
-              <meshStandardMaterial color="#84CC16" transparent opacity={0.3} />
-            </mesh>
-          </Float>
-          <Float speed={1.2} rotationIntensity={1.5} floatIntensity={2}>
-            <mesh position={[1.8, 0, -1]} scale={0.9} rotation={[Math.PI / 3, Math.PI / 4, 0]}>
-              <torusGeometry args={[1.5, 0.015, 16, 100]} />
-              <meshStandardMaterial color="#ffffff" transparent opacity={0.15} />
-            </mesh>
-          </Float>
+        <ErrorBoundary>
+          <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+            <Suspense fallback={null}>
+              <fog attach="fog" args={['#0d1a08', 3, 10]} />
+              <ambientLight intensity={0.5} />
+              <directionalLight position={[2, 5, 2]} intensity={1.5} color="#a3e635" />
+              <directionalLight position={[-2, -5, -2]} intensity={0.5} color="#ffffff" />
+              
+              {/* Floating Data Particles */}
+              <Stars radius={10} depth={50} count={1500} factor={3} saturation={0} fade speed={1.5} />
+              
+              {/* Abstract Floating Rings representing financial cycles */}
+              <Float speed={1.5} rotationIntensity={1} floatIntensity={1.5}>
+                <mesh position={[2, 0, -1]} scale={1.2} rotation={[Math.PI / 4, 0, 0]}>
+                  <torusGeometry args={[1.5, 0.015, 16, 100]} />
+                  <meshStandardMaterial color="#84CC16" transparent opacity={0.3} />
+                </mesh>
+              </Float>
+              <Float speed={1.2} rotationIntensity={1.5} floatIntensity={2}>
+                <mesh position={[1.8, 0, -1]} scale={0.9} rotation={[Math.PI / 3, Math.PI / 4, 0]}>
+                  <torusGeometry args={[1.5, 0.015, 16, 100]} />
+                  <meshStandardMaterial color="#ffffff" transparent opacity={0.15} />
+                </mesh>
+              </Float>
 
-          {/* Background Wireframe Element */}
-          <Float speed={2} rotationIntensity={2} floatIntensity={1}>
-            <mesh position={[-2, 1, -3]} scale={2}>
-              <icosahedronGeometry args={[1, 1]} />
-              <meshStandardMaterial color="#a3e635" wireframe transparent opacity={0.1} />
-            </mesh>
-          </Float>
-        </Canvas>
+              {/* Background Wireframe Element */}
+              <Float speed={2} rotationIntensity={2} floatIntensity={1}>
+                <mesh position={[-2, 1, -3]} scale={2}>
+                  <icosahedronGeometry args={[1, 1]} />
+                  <meshStandardMaterial color="#a3e635" wireframe transparent opacity={0.1} />
+                </mesh>
+              </Float>
+            </Suspense>
+          </Canvas>
+        </ErrorBoundary>
       </div>
 
       {/* Background Grid & Axis Labels */}

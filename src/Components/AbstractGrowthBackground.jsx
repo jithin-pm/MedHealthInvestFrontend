@@ -2,6 +2,8 @@ import React, { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { Float, OrbitControls, Environment, Box } from '@react-three/drei'
 import * as THREE from 'three'
+import ErrorBoundary from './ErrorBoundary'
+import { Suspense } from 'react'
 
 /* ──────────────────── Rising Market Bars ──────────────────── */
 function GrowthBars({ count = 40 }) {
@@ -134,23 +136,27 @@ function Scene() {
 export default function AbstractGrowthBackground({ className = "" }) {
   return (
     <div className={`absolute inset-0 pointer-events-none opacity-90 transition-opacity duration-1000 ${className}`}>
-      <Canvas
-        camera={{ position: [0, 5, 25], fov: 40 }}
-        shadows
-        gl={{ antialias: true, alpha: true, stencil: false }}
-        dpr={[1, 2]}
-      >
-        <Scene />
-        {/* Very slow cinematic orbit */}
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          autoRotate
-          autoRotateSpeed={0.3}
-          maxPolarAngle={Math.PI / 2 + 0.1}
-          minPolarAngle={Math.PI / 2 - 0.3}
-        />
-      </Canvas>
+      <ErrorBoundary>
+        <Canvas
+          camera={{ position: [0, 5, 25], fov: 40 }}
+          shadows
+          gl={{ antialias: true, alpha: true, stencil: false }}
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={null}>
+            <Scene />
+            {/* Very slow cinematic orbit */}
+            <OrbitControls
+              enableZoom={false}
+              enablePan={false}
+              autoRotate
+              autoRotateSpeed={0.3}
+              maxPolarAngle={Math.PI / 2 + 0.1}
+              minPolarAngle={Math.PI / 2 - 0.3}
+            />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { FiChevronDown, FiArrowRight, FiActivity, FiRefreshCw, FiCheckCircle, FiX } from 'react-icons/fi'
+import Logo from '../../../Components/Logo'
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
@@ -11,16 +12,7 @@ export default function Navbar() {
       <nav className="fixed top-0 left-0 w-full z-100 px-6 lg:px-20 py-3 transition-all duration-500 font-['Outfit'] hidden md:flex items-center justify-between bg-black/30 backdrop-blur-sm border-b border-white/5 shadow-2xl">
         
         {/* ── Left: Logo & Branding ── */}
-        <div className="flex items-center gap-3 lg:gap-4 group cursor-pointer relative z-120">
-          <div className="relative w-8 h-8 lg:w-10 lg:h-10 flex items-center justify-center">
-            <div className="absolute inset-0 border-2 border-white/20 rotate-45 rounded-lg group-hover:rotate-90 transition-all duration-700 ease-out" />
-            <div className="absolute w-3 h-3 lg:w-4 lg:h-4 bg-white rotate-45 animate-pulse shadow-[0_0_15px_white]" />
-          </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-lg lg:text-xl font-black tracking-tighter text-white uppercase italic">Med Health</span>
-            <span className="text-[6px] lg:text-[7px] font-bold tracking-[0.4em] uppercase text-white/30 ml-1">Est. 2026</span>
-          </div>
-        </div>
+        <Logo size="md" />
 
         {/* ── Center: Minimalist Link Navigation & Dropdown ── */}
         <div className="flex items-center gap-10 lg:gap-14 ml-auto mr-auto px-4 py-2">
@@ -83,13 +75,7 @@ export default function Navbar() {
       >
         <div className="bg-zinc-950/80 backdrop-blur-xl border border-white/10 rounded-full px-6 py-2.5 flex items-center justify-between shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
           {/* Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 relative flex items-center justify-center">
-              <div className="absolute inset-0 border border-white/20 rotate-45" />
-              <div className="w-1.5 h-1.5 bg-white rotate-45 shadow-[0_0_10px_white]" />
-            </div>
-            <span className="text-xs font-black tracking-tighter text-white uppercase italic">Med Health</span>
-          </div>
+          <Logo size="sm" />
 
           {/* Hamburger Menu Toggle */}
           <button
@@ -125,13 +111,7 @@ export default function Navbar() {
         >
           {/* Header Area */}
           <div className="flex items-center justify-between p-8 border-b border-white/5">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 relative flex items-center justify-center">
-                <div className="absolute inset-0 border border-white/20 rotate-45" />
-                <div className="w-2 h-2 bg-white rotate-45" />
-              </div>
-              <span className="text-sm font-black tracking-tighter text-white uppercase italic">Med Health</span>
-            </div>
+            <Logo size="sm" />
             <button 
               onClick={() => setIsOpen(false)}
               className="w-10 h-10 flex items-center justify-center hover:opacity-70 transition-opacity"

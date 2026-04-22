@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
 import { FiArrowRight } from 'react-icons/fi'
+import Logo from './Logo'
 
 export default function Footer() {
   const [formData, setFormData] = useState({
@@ -25,9 +25,7 @@ export default function Footer() {
           
           {/* Simple Branding */}
           <div className="lg:w-1/3">
-            <Link to="/" className="text-2xl font-['Outfit'] font-black tracking-tighter text-white inline-block mb-4">
-              MED HEALTH<span className="text-[#ccff00]">INVEST</span>
-            </Link>
+            <Logo size="md" className="mb-4" />
             <p className="text-zinc-500 text-sm leading-relaxed max-w-xs">
               Institutional-grade assets and refined portfolio management for the modern investor.
             </p>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import AreaChartBackground from '../../Components/AreaChartBackground';
 import Auth3DBackground from '../../Components/Auth3DBackground';
 import AuthForm from './AuthForm';
+import Logo from '../../Components/Logo';
 
 export default function Auth() {
   return (
@@ -21,12 +22,7 @@ export default function Auth() {
 
         {/* Branding Overlay */}
         <div className="absolute top-8 left-8 md:top-12 md:left-12 z-20">
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 md:w-10 md:h-10 border-2 border-white rounded-full flex items-center justify-center group-hover:bg-white group-hover:text-black transition-all duration-300">
-              <span className="font-['Playfair_Display'] italic font-bold">M</span>
-            </div>
-            <span className="text-white font-bold tracking-widest text-sm uppercase">Med Health.</span>
-          </Link>
+          <Logo size="sm" />
         </div>
 
         {/* Left Side Content Overlay */}
@@ -46,12 +42,7 @@ export default function Auth() {
 
         {/* Mobile Header / Branding */}
         <div className="absolute top-6 left-6 z-20 md:hidden">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 border-2 border-black rounded-full flex items-center justify-center">
-              <span className="font-['Playfair_Display'] italic text-black font-bold">M</span>
-            </div>
-            <span className="text-black font-bold tracking-widest text-xs uppercase">Med Health.</span>
-          </Link>
+          <Logo size="sm" variant="dark" />
         </div>
 
         {/* The Form */}

@@ -2,6 +2,8 @@ import React, { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Environment, Float, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
+import ErrorBoundary from './ErrorBoundary'
+import { Suspense } from 'react'
 
 /* ──────────────────── Single Gold Bar ──────────────────── */
 function GoldBar({ position, rotation, scale = 1, delay = 0 }) {
@@ -112,22 +114,26 @@ function Scene() {
 export default function GoldVaultBackground({ className = "" }) {
   return (
     <div className={`absolute inset-0 pointer-events-none opacity-90 transition-opacity duration-1000 ${className}`}>
-      <Canvas
-        camera={{ position: [0, 2, 10], fov: 45 }}
-        shadows
-        gl={{ antialias: true, alpha: true, stencil: false }}
-        dpr={[1, 2]}
-      >
-        <Scene />
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          autoRotate
-          autoRotateSpeed={0.4}
-          maxPolarAngle={Math.PI / 2 + 0.1}
-          minPolarAngle={Math.PI / 2 - 0.4}
-        />
-      </Canvas>
+      <ErrorBoundary>
+        <Canvas
+          camera={{ position: [0, 2, 10], fov: 45 }}
+          shadows
+          gl={{ antialias: true, alpha: true, stencil: false }}
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={null}>
+            <Scene />
+            <OrbitControls
+              enableZoom={false}
+              enablePan={false}
+              autoRotate
+              autoRotateSpeed={0.4}
+              maxPolarAngle={Math.PI / 2 + 0.1}
+              minPolarAngle={Math.PI / 2 - 0.4}
+            />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 }

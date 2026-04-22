@@ -1,13 +1,15 @@
 import React, { useRef } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Stars, Float, MeshDistortMaterial } from '@react-three/drei';
+import ErrorBoundary from './ErrorBoundary';
+import { Suspense } from 'react';
 
 function AbstractCore() {
   const coreRef = useRef();
   const wireRef = useRef();
 
   useFrame((state) => {
-    const t = state.clock.getElapsedTime();
+    const t = state.clock.elapsedTime;
     if (coreRef.current) {
       coreRef.current.rotation.y = t * 0.2;
       coreRef.current.rotation.x = t * 0.1;
@@ -66,18 +68,22 @@ function AbstractCore() {
 export default function Auth3DBackground({ className = "" }) {
   return (
     <div className={`absolute inset-0 bg-[#0a0a0a] z-0 ${className}`}>
-      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
-        <fog attach="fog" args={['#0a0a0a', 4, 8]} />
-        <ambientLight intensity={0.2} />
-        <directionalLight position={[2, 5, 2]} intensity={1} color="#ffffff" />
-        <directionalLight position={[-2, -5, -2]} intensity={2} color="#84CC16" />
-        
-        {/* Background Particles */}
-        <Stars radius={10} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
-        
-        {/* Central Geometric Structure */}
-        <AbstractCore />
-      </Canvas>
+      <ErrorBoundary>
+        <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+          <Suspense fallback={null}>
+            <fog attach="fog" args={['#0a0a0a', 4, 8]} />
+            <ambientLight intensity={0.2} />
+            <directionalLight position={[2, 5, 2]} intensity={1} color="#ffffff" />
+            <directionalLight position={[-2, -5, -2]} intensity={2} color="#84CC16" />
+            
+            {/* Background Particles */}
+            <Stars radius={10} depth={50} count={2000} factor={4} saturation={0} fade speed={1} />
+            
+            {/* Central Geometric Structure */}
+            <AbstractCore />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   );
 }

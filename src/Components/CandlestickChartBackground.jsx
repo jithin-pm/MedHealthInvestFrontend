@@ -2,6 +2,8 @@ import React, { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Environment, QuadraticBezierLine } from '@react-three/drei'
 import * as THREE from 'three'
+import ErrorBoundary from './ErrorBoundary'
+import { Suspense } from 'react'
 
 /* ──────────────────── 3D Candlestick ──────────────────── */
 function Candlestick({ position, isBullish, bodyHeight, wickHeight, delay }) {
@@ -120,22 +122,26 @@ function Scene() {
 export default function CandlestickChartBackground({ className = "" }) {
   return (
     <div className={`absolute inset-0 pointer-events-none opacity-90 transition-opacity duration-1000 ${className}`}>
-      <Canvas
-        camera={{ position: [0, 1, 10], fov: 50 }}
-        gl={{ antialias: true, alpha: true }}
-        dpr={[1, 2]}
-      >
-        <Scene />
-        {/* Very slow pan across the chart */}
-        <OrbitControls
-          enableZoom={false}
-          enablePan={false}
-          autoRotate
-          autoRotateSpeed={0.2}
-          maxPolarAngle={Math.PI / 2}
-          minPolarAngle={Math.PI / 2 - 0.2}
-        />
-      </Canvas>
+      <ErrorBoundary>
+        <Canvas
+          camera={{ position: [0, 1, 10], fov: 50 }}
+          gl={{ antialias: true, alpha: true }}
+          dpr={[1, 2]}
+        >
+          <Suspense fallback={null}>
+            <Scene />
+            {/* Very slow pan across the chart */}
+            <OrbitControls
+              enableZoom={false}
+              enablePan={false}
+              autoRotate
+              autoRotateSpeed={0.2}
+              maxPolarAngle={Math.PI / 2}
+              minPolarAngle={Math.PI / 2 - 0.2}
+            />
+          </Suspense>
+        </Canvas>
+      </ErrorBoundary>
     </div>
   )
 }
