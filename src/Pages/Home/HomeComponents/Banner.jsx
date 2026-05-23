@@ -1,9 +1,10 @@
-import React from 'react'
 import MoneyRainBackground from '../../../Components/MoneyRainBackground'
+import { useNavigate } from 'react-router-dom'
 
 
 /* ─────────────────────────── Banner ─────────────────────────── */
 export default function Banner() {
+  const navigate = useNavigate();
   return (
     <section className="relative w-full min-h-screen bg-black overflow-hidden flex flex-col items-center justify-center">
 
@@ -32,7 +33,7 @@ export default function Banner() {
 
 
           {/* headline */}
-          <h1 className="text-5xl lg:text-[80px] font-black leading-[1.1] tracking-tighter text-white flex flex-col gap-2">
+          <h1 className="text-5xl lg:text-[80px] font-black leading-[1.1] text-white flex flex-col gap-2">
             <span>Reliable Returns.</span>
             <span className="text-3xl lg:text-[60px] font-['Playfair_Display'] italic font-normal normal-case tracking-normal leading-none px-1">Refined Exposure.</span>
             <span className="relative text-transparent bg-clip-text"
@@ -42,7 +43,7 @@ export default function Banner() {
           </h1>
 
           {/* subtext */}
-          <p className="text-[14px] lg:text-xl text-white/40 max-w-4xl leading-relaxed font-medium tracking-tight">
+          <p className="text-[14px] lg:text-xl text-white/40 max-w-4xl leading-relaxed font-medium">
             Elevate your monthly income through <span className="text-white/70">private, vetted project funding</span>. We provide a transparent framework for fixed monthly yields where your capital remains our primary objective.
           </p>
 
@@ -50,7 +51,8 @@ export default function Banner() {
           <div className="flex flex-wrap justify-center gap-6 mt-4">
             <button
               id="banner-cta-start"
-              className="group relative px-10 py-4 bg-white text-black text-[11px] font-black tracking-widest uppercase rounded-full overflow-hidden transition-all duration-500 border-2 border-white hover:bg-black hover:text-white"
+              onClick={() => navigate('/active-projects')}
+              className="group relative px-10 py-4 bg-white text-black text-[11px] font-bold tracking-widest uppercase rounded-full overflow-hidden transition-all duration-500 border-2 border-white hover:bg-black hover:text-white"
             >
               <span className="relative z-10 transition-colors duration-500">Start Investing</span>
               <div className="absolute inset-x-0 top-0 h-full w-[200%] bg-white/20 -translate-x-full group-hover:animate-shimmer" />
@@ -58,11 +60,12 @@ export default function Banner() {
 
             <button
               id="banner-cta-learn"
-              className="group relative px-10 py-4 border-2 border-white text-white text-[11px] font-black tracking-widest uppercase rounded-full overflow-hidden transition-all duration-500 hover:bg-white hover:text-black"
+              onClick={() => navigate('/about')}
+              className="group relative px-10 py-4 border-2 border-white text-white text-[11px] font-bold tracking-widest uppercase rounded-full overflow-hidden transition-all duration-500 hover:bg-[#ccff00] hover:text-black"
             >
-              <span className="relative z-10 transition-colors duration-500">View Projects</span>
+              <span className="relative z-10 transition-colors duration-500">Know More</span>
               {/* Center Out Fill */}
-              <div className="absolute inset-0 bg-white scale-0 group-hover:scale-100 transition-transform duration-500 rounded-full" />
+              <div className="absolute inset-0 bg-[#ccff00] scale-0 group-hover:scale-100 transition-transform duration-500 rounded-full" />
             </button>
           </div>
         </div>

@@ -9,8 +9,8 @@ export default function Auth() {
   return (
     <div className="w-full min-h-screen bg-black flex flex-col md:flex-row overflow-hidden relative">
       
-      {/* ── Left Side: 3D Visualization ── */}
-      <div className="relative w-full md:w-1/2 h-64 md:h-screen items-center justify-center border-b md:border-b-0 md:border-r border-white/10 hidden sm:flex">
+      {/* ── Background Visualization (Full screen on mobile, left half on desktop) ── */}
+      <div className="absolute inset-0 md:relative md:w-1/2 md:h-screen flex items-center justify-center border-b md:border-b-0 md:border-r border-white/10 z-0 md:z-10">
         <AreaChartBackground className="opacity-100" />
         
         {/* Vignette for left side */}
@@ -20,13 +20,13 @@ export default function Auth() {
           }}
         />
 
-        {/* Branding Overlay */}
-        <div className="absolute top-8 left-8 md:top-12 md:left-12 z-20">
+        {/* Branding Overlay (Desktop only) */}
+        <div className="absolute top-12 left-12 z-20 hidden md:block">
           <Logo size="sm" />
         </div>
 
-        {/* Left Side Content Overlay */}
-        <div className="absolute z-10 p-12 bottom-64 left-0 text-center md:text-left max-w-2xl hidden md:block">
+        {/* Content Overlay (Desktop only) */}
+        <div className="absolute z-10 p-12 bottom-64 left-0 text-left max-w-2xl hidden md:block">
           <h2 className="text-5xl lg:text-6xl font-black text-white leading-none tracking-tighter mb-6">
             Invest Once,<br/>
             <span className="font-['Playfair_Display'] italic font-normal text-white/70">Earn Every Month.</span>
@@ -37,16 +37,16 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* ── Right Side: Authentication Form ── */}
-      <div className="relative w-full md:w-1/2 h-screen md:h-screen bg-white flex items-center justify-center p-6 md:p-4">
+      {/* ── Authentication Form Side (Centered modal on mobile, right half on desktop) ── */}
+      <div className="relative w-full md:w-1/2 min-h-screen bg-transparent md:bg-white flex items-center justify-center p-6 md:p-10 z-10">
 
         {/* Mobile Header / Branding */}
         <div className="absolute top-6 left-6 z-20 md:hidden">
-          <Logo size="sm" variant="dark" />
+          <Logo size="sm" variant="light" />
         </div>
 
-        {/* The Form */}
-        <div className="w-full max-w-md relative z-10 flex flex-col justify-center items-center h-full pt-10 md:pt-0">
+        {/* The Form (Modal appearance on mobile) */}
+        <div className="w-full max-w-md relative z-10 flex flex-col justify-center items-center">
           <AuthForm />
         </div>
       </div>

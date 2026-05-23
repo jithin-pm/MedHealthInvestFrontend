@@ -2,7 +2,7 @@ export default function ValueStats() {
   const stats = [
     { label: "Assets Managmed", value: "$420M+", sub: "Institutional Grade" },
     { label: "Target IRR", value: "15%+", sub: "Projected Annual" },
-    { label: "Successful Exits", value: "100%", sub: "Portfolio Proven" }
+    { label: "Successful Exits", value: "100%", sub: "Project Proven" }
   ]
 
   return (

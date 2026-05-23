@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiArrowRight, FiCheck, FiChevronDown, FiSearch } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiChevronDown, FiSearch, FiEye, FiEyeOff } from 'react-icons/fi';
+import { registerUserApi, loginUserApi } from '../../Services/allApi';
+import { showAlert } from '../../Utils/alert';
 
 const countries = [
   { name: 'India', code: '+91', iso: 'in' },
@@ -25,6 +27,7 @@ export default function AuthForm() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [formData, setFormData] = useState({
     name: '',
+    email: '',
     gender: '',
     phone: '',
     password: '',
@@ -35,6 +38,10 @@ export default function AuthForm() {
   const [isCountryOpen, setIsCountryOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+  
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
   const genderRef = useRef(null);
   const countryRef = useRef(null);
@@ -81,9 +88,31 @@ export default function AuthForm() {
     }
   };
 
-  const submitEmail = (e) => {
+  const submitEmail = async (e) => {
     e.preventDefault();
-    if(email && password) setStep('otp');
+    if (!email || !password) {
+      showAlert('Error', 'Please enter both email and password.', 'warning');
+      return;
+    }
+
+    try {
+      const response = await loginUserApi({ email, password });
+      if (response.status === 200) {
+        const { accessToken, user } = response.data;
+        
+        // Save to localStorage (the instance.js service expects this structure)
+        localStorage.setItem('medhealthinvestuser', JSON.stringify({ ...user, accessToken }));
+     
+        // Redirect to home or dashboard
+        window.location.href = '/'; 
+      } else {
+        showAlert('Error', response.data?.message || 'Invalid email or password', 'error');
+      }
+    } catch (error) {
+      console.error("Login error:", error);
+      const errorMessage = error.response?.data?.message || 'Something went wrong. Please try again.';
+      showAlert('Error', errorMessage, 'error');
+    }
   };
 
   const submitOtp = (e) => {
@@ -91,17 +120,43 @@ export default function AuthForm() {
     setStep('register');
   };
 
-  const submitRegistration = (e) => {
+
+
+  const submitRegistration = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      alert("Passwords do not match.");
+      showAlert('Error', "Passwords do not match.", 'error');
       return;
     }
-    alert('Account created successfully!');
+
+
+
+    const payload = {
+      fullName: formData.name,
+      email: formData.email,
+      password: formData.password,
+      gender: formData.gender,
+      mobileNumber: formData.phone,
+      countryCode: selectedCountry.code
+    };
+
+    try {
+      const response = await registerUserApi(payload);
+      if (response.status === 201) {
+        showAlert('Success', 'Account created successfully!', 'success');
+        setStep('email'); // Redirect to login
+      } else {
+        showAlert('Error', response.data?.message || 'Registration failed', 'error');
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      const errorMessage = error.response?.data?.message || 'Something went wrong. Please try again.';
+      showAlert('Error', errorMessage, 'error');
+    }
   };
 
   return (
-    <div className="w-full max-w-[420px] p-2 md:p-10 lg:p-12 bg-white border-2  border-gray-200 font-['Outfit'] shadow-none md:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)]">
+    <div className="w-full max-w-[420px] p-10 md:p-10 lg:p-12 bg-white border border-gray-100 md:border-2 md:border-gray-200 font-['Outfit'] shadow-2xl rounded-2xl md:rounded-none md:shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)]">
       
       {/* Sleek Minimalist Header */}
       <div className="mb-6 relative z-10  border-black/5">
@@ -111,7 +166,7 @@ export default function AuthForm() {
           {step === 'register' && 'Join the Elite.'}
         </h2>
         <p className="text-gray-500 text-[13px] leading-relaxed font-medium tracking-tight opacity-70 max-w-[320px]">
-          {step === 'email' && 'Sign in to monitor your yields and manage your institutional-grade portfolio.'}
+          {step === 'email' && 'Sign in to monitor your yields and manage your institutional-grade projects.'}
           {step === 'otp' && `A secure authorization code has been dispatched to your device ending in **1234.`}
           {step === 'register' && 'Complete your registration to unlock a world of exclusive, fixed-income opportunities.'}
         </p>
@@ -120,10 +175,10 @@ export default function AuthForm() {
       <div className="relative z-10 w-full">
         {/* Email Step */}
         {step === 'email' && (
-          <form onSubmit={submitEmail} className="space-y-1 animate-fade-in-up">
+          <form onSubmit={submitEmail} className="space-y-2 animate-fade-in-up">
             
             {/* Floating Label Input: Email */}
-            <div className="relative group mt-2">
+            <div className="relative group">
               <input
                 type="email"
                 value={email}
@@ -142,13 +197,13 @@ export default function AuthForm() {
             </div>
 
             {/* Floating Label Input: Password */}
-            <div className="relative group mt-6">
+            <div className="relative group">
               <input
-                type="password"
+                type={showLoginPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 id="password"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
                 placeholder=" "
                 required
               />
@@ -158,6 +213,13 @@ export default function AuthForm() {
               >
                 Password
               </label>
+              <button
+                type="button"
+                onClick={() => setShowLoginPassword(!showLoginPassword)}
+                className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+              >
+                {showLoginPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+              </button>
             </div>
 
             <div className="flex justify-end mt-2">
@@ -168,13 +230,13 @@ export default function AuthForm() {
 
             <button
               type="submit"
-              className="w-full py-4 mt-10 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+              className="w-full py-4 mt-4 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
             >
               <span>Continue</span>
               <FiArrowRight className="text-base" />
             </button>
             
-            <div className="pt-8 mt-6 border-t border-gray-100">
+            <div className="pt-4 mt-2 border-t border-gray-100">
               <button type="button" onClick={() => setStep('register')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold flex items-center gap-2 group">
                 New Investor? 
                 <span className="text-black font-black uppercase inline-block relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-px after:bottom-0 after:left-0 after:bg-black after:origin-bottom-right after:transition-transform after:duration-300 group-hover:after:scale-x-100 group-hover:after:origin-bottom-left">
@@ -223,7 +285,7 @@ export default function AuthForm() {
         {step === 'register' && (
           <form onSubmit={submitRegistration} className="space-y-2 animate-fade-in-up">
             
-            <div className="relative group mt-2">
+            <div className="relative group">
               <input
                 type="text"
                 value={formData.name}
@@ -241,14 +303,32 @@ export default function AuthForm() {
               </label>
             </div>
 
+            <div className="relative group">
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                id="reg-email"
+                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                placeholder=" "
+                required
+              />
+              <label 
+                htmlFor="reg-email" 
+                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+              >
+                Email Address
+              </label>
+            </div>
+
             <div className="relative group" ref={countryRef}>
               <div className="flex items-end gap-3 transition-colors group-focus-within:border-black">
                 {/* Country Selector */}
-                <div className="relative pb-2 border-b border-gray-300 min-w-[85px]">
+                <div className="relative border-b border-gray-300 min-w-[85px]">
                   <button
                     type="button"
                     onClick={() => setIsCountryOpen(!isCountryOpen)}
-                    className="flex items-center justify-between w-full h-full pt-6 focus:outline-none"
+                    className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
                   >
                     <div className="flex items-center gap-2">
                       <img 
@@ -326,7 +406,7 @@ export default function AuthForm() {
               </div>
             </div>
 
-            <div className="relative group mb-6" ref={genderRef}>
+            <div className="relative group" ref={genderRef}>
               {/* Custom Dropdown Trigger */}
               <button
                 type="button"
@@ -369,11 +449,11 @@ export default function AuthForm() {
 
             <div className="relative group">
               <input
-                type="password"
+                type={showRegPassword ? "text" : "password"}
                 value={formData.password}
                 onChange={(e) => setFormData({...formData, password: e.target.value})}
                 id="reg-password"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
                 placeholder=" "
                 required
               />
@@ -383,15 +463,22 @@ export default function AuthForm() {
               >
                 Password
               </label>
+              <button
+                type="button"
+                onClick={() => setShowRegPassword(!showRegPassword)}
+                className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+              >
+                {showRegPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+              </button>
             </div>
 
             <div className="relative group">
               <input
-                type="password"
+                type={showConfirmPassword ? "text" : "password"}
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                 id="confirmPassword"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
                 placeholder=" "
                 required
               />
@@ -401,17 +488,24 @@ export default function AuthForm() {
               >
                 Confirm Password
               </label>
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+              >
+                {showConfirmPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+              </button>
             </div>
 
             <button
               type="submit"
-              className="w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+              className="w-full py-4 mt-4 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
             >
               <span>Create Account</span>
               <FiArrowRight className="text-base" />
             </button>
             
-            <div className="pt-8 mt-6 border-t border-gray-100">
+            <div className="pt-4 mt-2 border-t border-gray-100">
                <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold group flex items-center gap-2">
                 Already an investor? 
                 <span className="text-black font-black uppercase inline-block relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-px after:bottom-0 after:left-0 after:bg-black after:origin-bottom-right after:transition-transform after:duration-300 group-hover:after:scale-x-100 group-hover:after:origin-bottom-left">

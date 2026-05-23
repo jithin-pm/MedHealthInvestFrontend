@@ -1,5 +1,6 @@
 import { FiArrowRight, FiCalendar, FiShield, FiRefreshCw } from 'react-icons/fi'
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import MaturityDonut from './MaturityDonut'
 
 export default function OngoingProjectCard({ project }) {
@@ -45,7 +46,7 @@ export default function OngoingProjectCard({ project }) {
         <h3 className="text-2xl font-bold text-white tracking-tight leading-tight mb-2">
           {project.title}
         </h3>
-        <p className="text-zinc-400 text-[14px] leading-relaxed font-medium line-clamp-2">{project.description}</p>
+
       </div>
 
       {/* Financial Metrics - Detailed Data Grid */}
@@ -68,7 +69,7 @@ export default function OngoingProjectCard({ project }) {
              <span className="text-[10px] font-black uppercase tracking-[0.2em]">Asset Timeline</span>
            </div>
            <div className="flex flex-col">
-             <span className="text-2xl font-black text-white tracking-tighter leading-none">{ project.daysRemaining }</span>
+             <span className="text-2xl font-black text-white leading-none">{ project.daysRemaining }</span>
              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest mt-1">Days to Completion</span>
            </div>
         </div>
@@ -80,12 +81,12 @@ export default function OngoingProjectCard({ project }) {
       </div>
 
       <div className="flex flex-col gap-4">
-        <button className="group/btn relative w-full py-5 bg-white text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl shadow-black/20">
+        <Link to={`/project/${project.id}`} className="group/btn relative w-full py-5 bg-white text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl shadow-black/20 block text-center">
           <span className="relative z-10 flex items-center justify-center gap-2">
             View Asset Details <FiArrowRight className="text-black/40 group-hover/btn:translate-x-1 group-hover/btn:text-black transition-all" />
           </span>
           <div className="absolute inset-0 bg-linear-to-r from-transparent via-black/5 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
-        </button>
+        </Link>
       </div>
     </div>
   )

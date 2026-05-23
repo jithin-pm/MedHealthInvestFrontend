@@ -1,469 +1,539 @@
-import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
-import { FiShield, FiTrendingUp, FiSettings, FiPlay, FiImage } from 'react-icons/fi'
-import { activeProjects } from '../../data/projects'
-import Navbar from '../Home/HomeComponents/Navbar'
-import Footer from '../../Components/Footer'
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { FiShield, FiTrendingUp, FiSettings, FiPlay, FiImage, FiLoader } from 'react-icons/fi';
+import Navbar from '../Home/HomeComponents/Navbar';
+import Footer from '../../Components/Footer';
+import { getAllProjectsApi, createPaymentOrderApi, verifyPaymentApi, extendSessionApi } from '../../Services/allApi';
+import { BASE_URL } from '../../Services/baseUrl';
+import Swal from 'sweetalert2';
+import InvestmentModal from '../../Components/InvestmentModal';
+import { io } from 'socket.io-client';
 
-/* ────────────────────────── Growth Line Chart Component ────────────────────────── */
+/* ────────────────────────── Profit Calculator Component ────────────────────────── */
 
-function InvestmentChart({ investment = 0, roi = "0%", duration = "0" }) {
-  const [data, setData] = useState([])
-  const [hoveredPoint, setHoveredPoint] = useState(null)
-  
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
-  
-  // Improved coordinate system for scrollable view
-  const width = 1000 
-  const height = isMobile ? 400 : 500
-  const padding = { 
-    top: isMobile ? 50 : 80, 
-    right: isMobile ? 30 : 40, 
-    bottom: isMobile ? 70 : 80, 
-    left: isMobile ? 70 : 70 
-  }
-  
-  const chartWidth = width - padding.left - padding.right
-  const chartHeight = height - padding.top - padding.bottom
+function ProfitCalculator({ investment = 0, roi = "0%", duration = "0" }) {
+   const inv = parseFloat(investment) || 0;
+   const monthlyROI = (parseFloat(roi) || 0) / 100;
+   const months = parseInt(duration) || 0;
+   
+   const accumulatedProfit = inv * monthlyROI * months;
+   const totalValue = inv + accumulatedProfit;
 
-  useEffect(() => {
-    const inv = parseFloat(investment) || 0
-    const monthlyROI = (parseFloat(roi) || 0) / 100
-    const months = parseInt(duration) || 0
-    const points = []
-    
-    for (let i = 0; i <= months; i++) {
-      const accumulatedProfit = inv * monthlyROI * i
-      const totalValue = inv + accumulatedProfit
-      points.push({ 
-        month: i, 
-        profit: accumulatedProfit,
-        total: totalValue,
-        isMaturity: i === months
-      })
-    }
-    setData(points)
-  }, [investment, roi, duration])
+   return (
+      <div className="flex flex-col gap-10 w-full font-['Poppins']">
+         
+         {inv > 0 ? (
+            <div className="w-full bg-[#050804] rounded-[40px] p-8 md:p-14 border border-white/5 relative overflow-hidden group shadow-[0_0_100px_rgba(204,255,0,0.05)] flex flex-col md:flex-row justify-between items-start md:items-center gap-8 md:gap-10">
+               <div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-[#ccff00]/20 to-transparent" />
 
-  if (data.length === 0) return (
-    <div className="w-full h-[400px] bg-[#050804] rounded-[32px] flex items-center justify-center border border-white/5 italic text-zinc-600 font-['Poppins']">
-      Synchronizing asset data...
-    </div>
-  )
+               <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.5em] text-zinc-500">Principal</span>
+                  <span className="text-2xl md:text-3xl font-black text-white">₹{inv.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+               </div>
+               
+               <div className="hidden md:block w-px h-16 bg-white/10" />
+               <div className="md:hidden w-full h-px bg-white/10" />
+               
+               <div className="flex flex-col gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.5em] text-[#ccff00]">Total Profit</span>
+                  <span className="text-2xl md:text-3xl font-black text-[#ccff00]">
+                     + ₹{accumulatedProfit.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </span>
+               </div>
 
-  const maxValue = data[data.length - 1]?.total || 0
-  const scaleMax = maxValue * 1.15
+               <div className="hidden md:block w-px h-16 bg-white/10" />
+               <div className="md:hidden w-full h-px bg-white/10" />
+               
+               <div className="flex flex-col gap-2 md:text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.5em] text-zinc-500">Maturity Value</span>
+                  <span className="text-2xl md:text-3xl font-black text-white">
+                     ₹{totalValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </span>
+               </div>
+            </div>
+         ) : (
+            <div className="w-full bg-[#0c0c0c] rounded-[40px] p-10 border border-white/5 text-center flex items-center justify-center">
+               <span className="text-zinc-600 font-medium italic text-sm">Enter an investment amount above to calculate your returns.</span>
+            </div>
+         )}
 
-  const getX = (i) => padding.left + (i / (Math.max(1, data.length - 1))) * chartWidth
-  const getY = (val) => padding.top + chartHeight - (val / (scaleMax || 1)) * chartHeight
-
-  const pathD = data.map((point, i) => `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(point.total)}`).join(' ')
-  const areaD = `${pathD} L ${getX(data.length - 1)} ${padding.top + chartHeight} L ${getX(0)} ${padding.top + chartHeight} Z`
-
-  return (
-    <div className="flex flex-col gap-10 w-full font-['Poppins']">
-      {/* 💎 Institutional Minimalist Simulator Visual */}
-      <div className="w-full bg-[#050804] rounded-[40px] p-6 md:p-14 border border-white/5 relative overflow-hidden group shadow-[0_0_100px_rgba(0,0,0,1)]">
-        
-        {/* Subtle Depth Layers (No Glow) */}
-        <div className="absolute inset-x-0 bottom-0 h-px bg-linear-to-r from-transparent via-white/5 to-transparent" />
-
-        <div className="flex flex-col md:flex-row justify-between items-start gap-10 mb-10 md:mb-16 relative z-10">
-           <div className="flex flex-col gap-3">
-             <div className="flex items-center gap-3">
-               <div className="w-3 h-[2px] bg-[#ccff00]" />
-               <h4 className="text-[10px] font-bold uppercase tracking-[0.5em] text-zinc-500 italic">Med Health Yield Projection</h4>
-             </div>
-             <div className="flex flex-col">
-               <span className="text-5xl md:text-7xl font-black text-white tracking-tightest leading-tight">
-                  ₹{(maxValue || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-               </span>
-               <p className="text-zinc-500 text-[11px] font-bold uppercase tracking-[0.2em] mt-2 flex items-center gap-2">
-                  Estimated Maturity Value <span className="w-1 h-1 rounded-full bg-zinc-800" /> <span className="text-zinc-400">ROI: {roi}</span>
-               </p>
-             </div>
-           </div>
-           
-           <div className="flex flex-col md:items-end gap-6 text-left md:text-right">
-              <div className="flex flex-col items-start md:items-end">
-                 <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1.5">Asset Protocol</span>
-                 <div className="flex items-center gap-2 bg-white/5 border border-white/10 px-3 py-1.5 rounded-full backdrop-blur-md">
-                    <FiShield className="text-zinc-400 text-xs" />
-                    <span className="text-[10px] font-bold text-white uppercase tracking-tighter">Secured Fixed-Income</span>
-                 </div>
-              </div>
-           </div>
-        </div>
-
-        <div className="relative h-[350px] md:h-[500px] w-full overflow-x-auto overflow-y-hidden scrollbar-hide cursor-crosshair touch-pan-x" onMouseLeave={() => setHoveredPoint(null)}>
-          <div className="min-w-[700px] md:min-w-full h-full">
-            <svg width="100%" height="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet" className="overflow-visible select-none" style={{ fontFamily: 'Poppins, sans-serif' }}>
-              <defs>
-                <linearGradient id="classyGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ccff00" stopOpacity="0.1" />
-                  <stop offset="100%" stopColor="#ccff00" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-
-              {/* Finer Grid Elements (Institutional Terminal Feel) */}
-              {[0, 0.25, 0.5, 0.75, 1].map((v, i) => (
-                <g key={i}>
-                  <line x1={padding.left} y1={padding.top + chartHeight * v} x2={padding.left + chartWidth} y2={padding.top + chartHeight * v} stroke="white" strokeOpacity="0.1" strokeDasharray="4,4" />
-                  <text x={padding.left - 15} y={padding.top + chartHeight * v + 4} textAnchor="end" fill="white" fillOpacity="0.4" fontSize={isMobile ? "12" : "10"} fontWeight={isMobile ? "bold" : "500"} className="tabular-nums font-medium">₹{(scaleMax * (1-v) / 1000).toFixed(0)}K</text>
-                </g>
-              ))}
-
-              {/* Base Protection Line */}
-              <line x1={padding.left} y1={getY(investment)} x2={padding.left + chartWidth} y2={getY(investment)} stroke="white" strokeOpacity="0.2" strokeWidth="1" />
-
-              {/* Main Area & Line (Clean, No-Glow) */}
-              <path d={areaD} fill="url(#classyGradient)" className="transition-all duration-700" />
-              <path d={pathD} fill="none" stroke="#ccff00" strokeWidth={isMobile ? "2" : "3"} strokeLinejoin="round" strokeLinecap="round" className="transition-all duration-700" />
-
-              {/* Hover Target Detection */}
-              {data.map((point, i) => (
-                <rect
-                  key={i}
-                  x={getX(i) - (chartWidth / (data.length - 1)) / 2}
-                  y={padding.top}
-                  width={chartWidth / (data.length - 1)}
-                  height={chartHeight}
-                  fill="transparent"
-                  onMouseEnter={() => setHoveredPoint({ ...point, x: getX(i), y: getY(point.total) })}
-                />
-              ))}
-
-              {/* Minimalist Marker & Tooltip */}
-              {hoveredPoint && (
-                <g className="pointer-events-none transition-all duration-200">
-                  <line x1={hoveredPoint.x} y1={padding.top} x2={hoveredPoint.x} y2={padding.top + chartHeight} stroke="white" strokeOpacity="0.2" strokeDasharray="4,4" />
-                  
-                  <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r={isMobile ? "4" : "5"} fill="#ccff00" stroke="#050804" strokeWidth="2" />
-                  
-                  <foreignObject x={hoveredPoint.x > width * 0.7 ? hoveredPoint.x - 190 : hoveredPoint.x < width * 0.3 ? hoveredPoint.x + 10 : hoveredPoint.x - 90} y={hoveredPoint.y - 140} width="180" height="130">
-                    <div className="bg-zinc-900 p-4 rounded-xl border border-white/10 shadow-[0_15px_35px_rgba(0,0,0,0.5)] select-none whitespace-nowrap" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                       <div className="flex justify-between items-center mb-2.5">
-                          <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Month {hoveredPoint.month}</span>
-                          {hoveredPoint.isMaturity && <span className="text-[7px] font-black text-black bg-[#ccff00] px-1.5 py-0.5 rounded-md uppercase">End</span>}
-                       </div>
-                       <div className="flex flex-col gap-1.5">
-                          <div className="flex justify-between items-center">
-                             <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Invested</span>
-                             <span className="text-[10px] font-bold text-zinc-300 tabular-nums">₹{(investment || 0).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                             <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Profit</span>
-                             <span className="text-[11px] font-black text-[#ccff00] tabular-nums">+ ₹{(hoveredPoint.profit || 0).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between items-center pt-1.5 border-t border-white/5">
-                             <span className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Total</span>
-                             <span className="text-[14px] font-black text-white tabular-nums">₹{(hoveredPoint.total || 0).toLocaleString()}</span>
-                          </div>
-                       </div>
-                    </div>
-                  </foreignObject>
-                </g>
-              )}
-
-              {/* X-Axis Timeline (Dynamic splitting to prevent overlap) */}
-              <line x1={padding.left} y1={padding.top + chartHeight + 40} x2={padding.left + chartWidth} y2={padding.top + chartHeight + 40} stroke="white" strokeOpacity="0.15" />
-              {data.map((point, i) => {
-                // Adjust frequency based on how many months are in the project
-                const totalMonths = data.length - 1;
-                const maxLabels = isMobile ? 6 : 10;
-                const step = Math.max(1, Math.ceil(totalMonths / maxLabels));
-                
-                const isStep = i > 0 && i < totalMonths && i % step === 0;
-                const isNearEnd = totalMonths - i < (step / 2); // Avoid crowding the 'End' label
-                
-                if (i === 0 || i === totalMonths || (isStep && !isNearEnd)) {
-                  return (
-                    <g key={i}>
-                      <circle cx={getX(i)} cy={padding.top + chartHeight + 40} r="2.5" fill="white" fillOpacity="0.4" />
-                      <text x={getX(i)} y={padding.top + chartHeight + 65} textAnchor="middle" fill="white" fillOpacity="0.4" fontSize={isMobile ? "11" : "10"} fontWeight={isMobile ? "bold" : "500"} className="uppercase tracking-widest font-medium">
-                         {i === 0 ? 'Start' : i === totalMonths ? 'End' : isMobile ? `M${point.month}` : `Month ${point.month}`}
-                      </text>
-                    </g>
-                  )
-                }
-                return null
-              })}
-            </svg>
-          </div>
-        </div>
+         <div className="grid md:grid-cols-2 gap-8 bg-zinc-900/20 p-8 rounded-[32px] border border-white/5">
+            <div className="flex gap-6">
+               <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
+                  <FiShield className="text-[#ccff00] text-xl" />
+               </div>
+               <div className="flex flex-col gap-1">
+                  <h6 className="text-[11px] font-black uppercase tracking-widest text-white">No-Loss Interest Guarantee</h6>
+                  <p className="text-[12px] text-zinc-500 font-medium leading-relaxed">
+                     If the project completes earlier than the planned tenure, you will still receive interest for the <strong>full initial duration</strong>.
+                  </p>
+               </div>
+            </div>
+            <div className="flex gap-6">
+               <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
+                  <FiTrendingUp className="text-[#ccff00] text-xl" />
+               </div>
+               <div className="flex flex-col gap-1">
+                  <h6 className="text-[11px] font-black uppercase tracking-widest text-white">Full Capital Refund Policy</h6>
+                  <p className="text-[12px] text-zinc-500 font-medium leading-relaxed">
+                     In the rare event the total fund is not collected, your full capital amount is <strong>refunded immediately</strong>.
+                  </p>
+               </div>
+            </div>
+         </div>
       </div>
-
-      {/* 🛡 Business Policy Reference Section (Clean and detailed) */}
-      <div className="grid md:grid-cols-2 gap-8 bg-zinc-900/20 p-8 rounded-[32px] border border-white/5">
-          <div className="flex gap-6">
-             <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                <FiShield className="text-[#ccff00] text-xl" />
-             </div>
-             <div className="flex flex-col gap-1">
-                <h6 className="text-[11px] font-black uppercase tracking-widest text-white">No-Loss Interest Guarantee</h6>
-                <p className="text-[12px] text-zinc-500 font-medium leading-relaxed">
-                   If the project completes earlier than the planned tenure, you will still receive interest for the <strong>full initial duration</strong>. Your ROI is protected by the asset's early-exit premium.
-                </p>
-             </div>
-          </div>
-          <div className="flex gap-6">
-             <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                <FiTrendingUp className="text-[#ccff00] text-xl" />
-             </div>
-             <div className="flex flex-col gap-1">
-                <h6 className="text-[11px] font-black uppercase tracking-widest text-white">Full Capital Refund Policy</h6>
-                <p className="text-[12px] text-zinc-500 font-medium leading-relaxed">
-                   In the rare event the total fund is not collected within the specified time duration, your full capital amount is <strong>refunded immediately</strong> with no deductions or interest loss.
-                </p>
-             </div>
-          </div>
-      </div>
-    </div>
-  )
+   );
 }
 
 /* ────────────────────────── Main Details Page ────────────────────────── */
 
 export default function ActiveProjectDetails() {
-  const { id } = useParams()
-  const project = activeProjects.find((p) => p.id === parseInt(id))
-  const [activeMedia, setActiveMedia] = useState(null)
-  const [investmentInput, setInvestmentInput] = useState('')
-  const [isLoaded, setIsLoaded] = useState(false)
+   const { id } = useParams();
+   const navigate = useNavigate();
+   const [project, setProject] = useState(null);
+   const [activeMedia, setActiveMedia] = useState(null);
+   const [investmentInput, setInvestmentInput] = useState('');
+   const [isLoaded, setIsLoaded] = useState(false);
+   const [loading, setLoading] = useState(true);
+   const [paymentLoading, setPaymentLoading] = useState(false);
+   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (project) {
-      setActiveMedia(project.gallery[0])
-      setTimeout(() => setIsLoaded(true), 100)
-    }
-    window.scrollTo(0, 0)
-  }, [project])
+   useEffect(() => {
+      const fetchProject = async () => {
+         try {
+            const user = JSON.parse(localStorage.getItem('medhealthinvestuser'));
+            const res = await getAllProjectsApi(user?.id);
+            if (res.status === 200) {
+               const foundProject = res.data.projects.find(p => p.id == id);
+               if (foundProject) {
+                  const gallery = JSON.parse(foundProject.projectImages || '[]').map(img => {
+                     const url = `${BASE_URL}/${img.replace(/\\/g, '/')}`;
+                     return {
+                        type: img.toLowerCase().endsWith('.mp4') ? 'video' : 'image',
+                        url: url,
+                        thumbnail: url
+                     };
+                  });
 
-  if (!project) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Project not found</div>
+                  setProject({
+                     ...foundProject,
+                     title: foundProject.projectName,
+                     target: parseFloat(foundProject.targetAmount),
+                     collected: parseFloat(foundProject.collectedAmount || 0),
+                     minAmount: parseFloat(foundProject.minInvestmentAmount || 1000),
+                     investors: 0,
+                     roi: foundProject.roi.toString().includes('%') ? foundProject.roi : `${foundProject.roi}% Monthly`,
+                     duration: foundProject.duration.toString().includes('Month') ? foundProject.duration : `${foundProject.duration} Months`,
+                     gallery: gallery
+                  });
+                  setActiveMedia(gallery[0]);
+               }
+            }
+            setLoading(false);
+         } catch (err) {
+            console.error("Error fetching project:", err);
+            setLoading(false);
+         }
+      };
+      fetchProject();
+      window.scrollTo(0, 0);
+   }, [id]);
 
-  const progress = (project.collected / project.target) * 100
+   useEffect(() => {
+      if (project) {
+         setTimeout(() => setIsLoaded(true), 100);
+      }
+   }, [project]);
 
-  return (
-    <div className="min-h-screen bg-black font-['Poppins'] text-white selection:bg-[#ccff00] selection:text-black">
-      <Navbar />
+   // Listen for real-time updates
+   useEffect(() => {
+      const socket = io(BASE_URL);
 
-      <main className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-20 pt-24 md:pt-32 pb-24">
-        
-        {/* 📋 Project Title Section (Responsive Padding/Sizes) */}
-        <div className="flex flex-col gap-4 md:gap-6 mb-8 md:mb-10">
-           <div className="flex items-center gap-3">
-              <span className="px-3 py-1 rounded-full bg-white text-black text-[9px] md:text-[10px] font-black uppercase tracking-widest">Active</span>
-           </div>
-           <div>
-             <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight mb-3 md:mb-4">
-               {project.title}
-             </h1>
-             <p className="text-sm md:text-xl text-zinc-500 font-medium leading-relaxed max-w-3xl">
-               {project.description.split('.')[0]}. Investing in the future of sustainable high-yield assets.
-             </p>
-           </div>
-        </div>
+      socket.on('project_updated', (data) => {
+         console.log('Detail page real-time update:', data);
+         if (project && data.projectId === project.id) {
+            setProject(prev => ({ 
+               ...prev, 
+               collected: parseFloat(data.collectedAmount) 
+            }));
+         }
+      });
 
-        {/* 🎬 Premium Media Gallery (Hero + Row Thumbnails) */}
-        <div className="flex flex-col gap-4 md:gap-6 mb-12 md:mb-16">
-          
-          {/* Main Hero Media */}
-          <div className="relative w-full aspect-video rounded-[32px] md:rounded-[48px] overflow-hidden bg-zinc-900 border border-white/10 group shadow-2xl">
-             {activeMedia?.type === 'video' ? (
-                <video 
-                  src={activeMedia.url} 
-                  autoPlay loop muted playsInline 
-                  className="w-full h-full object-cover"
-                />
-             ) : (
-                <img 
-                  src={activeMedia?.url} 
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" 
-                  alt={project.title} 
-                />
-             )}
-             <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent pointer-events-none" />
-             
-             {/* Badge or Meta info on image */}
-             <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 z-10 flex items-center gap-4">
-                <div className="flex flex-col">
-                   <span className="text-[10px] font-black text-[#ccff00] uppercase tracking-[0.3em] mb-1">Live Feed</span>
-                   <span className="text-sm md:text-lg font-bold text-white uppercase italic">{project.location}</span>
-                </div>
-             </div>
-          </div>
+      return () => {
+         socket.disconnect();
+      };
+   }, [project?.id]);
 
-          {/* Thumbnails row below hero (Touch scrollable) */}
-          <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x touch-pan-x">
-             {project.gallery.map((media, i) => (
-                <div 
-                  key={i}
-                  onClick={() => setActiveMedia(media)}
-                  className={`relative w-36 md:w-48 h-20 md:h-28 rounded-xl md:rounded-2xl overflow-hidden bg-zinc-900 border-2 cursor-pointer transition-all group/thumb shrink-0 snap-center ${
-                    activeMedia?.url === media.url ? 'border-[#ccff00]' : 'border-white/5 opacity-60 hover:opacity-100 hover:border-white/20'
-                  }`}
-                >
-                   <img src={media.thumbnail} className="w-full h-full object-cover" alt="Thumb" />
-                   <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 lg:group-hover/thumb:bg-transparent transition-all">
-                      <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-                         {media.type === 'video' ? <FiPlay className="text-white text-[10px]" /> : <FiImage className="text-white text-[10px]" />}
-                      </div>
-                      <span className="mt-2 text-[7px] md:text-[8px] font-black uppercase tracking-widest text-white block lg:opacity-0 lg:group-hover/thumb:opacity-100 transition-opacity">
-                         {media.type === 'video' ? 'WATCH VIDEO' : 'VIEW IMAGE'}
-                      </span>
-                   </div>
-                </div>
-             ))}
-          </div>
-        </div>
+   const loadRazorpayScript = () => {
+      return new Promise((resolve) => {
+         if (document.getElementById('razorpay-sdk')) {
+            resolve(true);
+            return;
+         }
+         const script = document.createElement('script');
+         script.id = 'razorpay-sdk';
+         script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+         script.onload = () => resolve(true);
+         script.onerror = () => resolve(false);
+         document.body.appendChild(script);
+      });
+   };
 
-        {/* 📋 Description and Funding Card Row (Responsive Stack) */}
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-10 md:gap-16 mb-16 md:mb-20">
-           
-           {/* Left: Narrative Section */}
-           <div className="lg:col-span-7 flex flex-col gap-4 md:gap-6 order-2 lg:order-1">
-              <div className="flex items-center gap-3">
-                 <div className="w-8 md:w-12 h-px bg-[#ccff00]" />
-                 <span className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500 italic">Project Narrative</span>
-              </div>
-              <p className="text-base md:text-lg text-zinc-400 leading-relaxed font-medium">
-                {project.description}
-                <br /><br />
-                Our institutional-grade approach ensures that all assets are vetted through a rigorous risk-assessment framework. By bridging the gap between private capital and high-yield infrastructure, we provide our partners with a resilient hedge against market volatility.
-              </p>
-           </div>
+   const handleInvestNowClick = () => {
+      const savedUser = JSON.parse(localStorage.getItem('medhealthinvestuser'));
+      
+      if (!savedUser || !savedUser.id) {
+         Swal.fire({
+            title: 'Login Required',
+            text: 'Please log in to your MedHealth Invest account to allocate investment capital.',
+            icon: 'info',
+            showCancelButton: true,
+            confirmButtonColor: '#ccff00',
+            cancelButtonColor: '#1a1a1a',
+            confirmButtonText: 'Login Now',
+            cancelButtonText: 'Cancel',
+            background: '#09090b',
+            color: '#ffffff',
+            customClass: {
+               confirmButton: 'text-black font-bold px-6 py-2.5 rounded-xl',
+               cancelButton: 'text-white font-bold px-6 py-2.5 rounded-xl border border-white/10'
+            }
+         }).then((result) => {
+            if (result.isConfirmed) {
+               navigate('/auth');
+            }
+         });
+         return;
+      }
 
-           {/* Right: Institutional Funding Card */}
-           <div className="lg:col-span-5 order-1 lg:order-2">
-              <div className="bg-zinc-900 rounded-[24px] md:rounded-[32px] p-6 md:p-8 border border-white/10 shadow-3xl flex flex-col gap-6 md:gap-8 transition-all hover:border-white/20">
-                 <div className="flex justify-between items-baseline">
-                    <div className="flex flex-col">
-                       <span className="text-2xl md:text-3xl font-black text-white tracking-tight">₹{project.collected.toLocaleString()}</span>
-                       <span className="text-[9px] md:text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Raised of ₹{project.target.toLocaleString()}</span>
-                    </div>
-                    <span className="text-xs md:text-sm font-black text-zinc-400">Target</span>
-                 </div>
+      const isPanVerified = savedUser.isPanVerified === 1 || savedUser.isPanVerified === true;
+      const isBankVerified = savedUser.isBankVerified === 1 || savedUser.isBankVerified === true;
 
-                 <div className="relative w-full h-3 md:h-4 bg-zinc-800 rounded-full overflow-hidden">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-[#ccff00] transition-all duration-2000"
-                      style={{ width: isLoaded ? `${progress}%` : '0%' }}
-                    />
-                 </div>
+      if (!isPanVerified || !isBankVerified) {
+         Swal.fire({
+            title: 'Verification Required',
+            text: 'To secure your investments and automate payouts, you must complete your Identity (PAN) and Bank Account verification first.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ccff00',
+            cancelButtonColor: '#1a1a1a',
+            confirmButtonText: 'Verify Now',
+            cancelButtonText: 'Later',
+            background: '#09090b',
+            color: '#ffffff',
+            customClass: {
+               confirmButton: 'text-black font-bold px-6 py-2.5 rounded-xl',
+               cancelButton: 'text-white font-bold px-6 py-2.5 rounded-xl border border-white/10'
+            }
+         }).then((result) => {
+            if (result.isConfirmed) {
+               navigate('/profile', { state: { openKyc: true } });
+            }
+         });
+         return;
+      }
 
-                 <button className="group/btn relative w-full py-5 md:py-6 bg-white text-black rounded-2xl text-[12px] md:text-[14px] font-black tracking-[0.2em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl">
-                   <span className="relative z-10">Invest Now</span>
-                   <div className="absolute inset-0 bg-[#ccff00] translate-y-full lg:group-hover/btn:translate-y-0 transition-transform duration-300" />
-                 </button>
+      setIsModalOpen(true);
+   };
 
-                 <p className="text-[9px] md:text-[10px] text-zinc-500 text-center font-bold uppercase tracking-widest leading-relaxed">
-                   Join {project.investors}+ verified institutional partners in this offering.
-                 </p>
-              </div>
-           </div>
-        </div>
+   const handleInvestNow = async (amount) => {
+      setIsModalOpen(false);
+      setPaymentLoading(true);
+      try {
+         // Check if session needs extension (less than 10 mins left)
+         const savedUser = JSON.parse(localStorage.getItem('medhealthinvestuser'));
+         if (savedUser && savedUser.accessToken) {
+            try {
+               const base64Url = savedUser.accessToken.split('.')[1];
+               const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+               const payload = JSON.parse(window.atob(base64));
+               
+               const expTimestamp = payload.exp * 1000;
+               const now = Date.now();
+               const remainingMins = (expTimestamp - now) / (1000 * 60);
 
-        {/* 📊 Integrated Returns Calculator & Growth Chart (Full-Width Row) */}
-        <div className="flex flex-col gap-10 md:gap-16 items-start">
-           
-           {/* Calculator Controls (Full-Width Header) */}
-           <div className="w-full flex flex-col md:flex-row justify-between items-end gap-8 bg-zinc-900/40 rounded-[24px] md:rounded-[32px] p-6 md:p-10 border border-white/5">
-              <div className="flex flex-col gap-3 max-w-xl">
-                 <div className="flex items-center gap-2">
-                   <FiSettings className="text-[#ccff00] animate-spin-slow" />
-                   <h3 className="text-xl md:text-3xl font-bold text-white tracking-tight">Your Payout Simulator</h3>
-                 </div>
-                 <p className="text-zinc-400 text-sm md:text-base font-normal leading-relaxed">
-                   Enter your investment amount below to see exactly how much profit you'll earn each month and your total final payout.
-                 </p>
-              </div>
+               if (remainingMins < 10) {
+                  console.log("Session low (<10 mins), extending...");
+                  const extendRes = await extendSessionApi();
+                  if (extendRes.status === 200 && extendRes.data.accessToken) {
+                     savedUser.accessToken = extendRes.data.accessToken;
+                     localStorage.setItem('medhealthinvestuser', JSON.stringify(savedUser));
+                  }
+               }
+            } catch (e) {
+               console.error("Session check failed", e);
+            }
+         }
 
-              <div className="flex flex-col md:flex-row gap-6 w-full md:w-auto items-center">
-                 <div className="flex flex-col gap-2 w-full md:w-64">
-                    <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-zinc-400">Investment Amount (₹)</label>
-                    <input 
-                      type="number" 
-                      value={investmentInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === '') {
-                          setInvestmentInput('');
-                        } else {
-                          setInvestmentInput(Math.max(0, parseInt(val) || 0));
-                        }
-                      }}
-                      placeholder="Enter amount"
-                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 md:px-5 py-3 md:py-4 text-center text-lg md:text-xl font-black text-[#ccff00] focus:border-[#ccff00] transition-all outline-none"
-                    />
-                 </div>
-                 <div className="hidden md:flex gap-8 border-l border-white/10 pl-8">
-                    <div className="flex flex-col gap-1">
-                       <span className="text-zinc-500 font-bold uppercase tracking-widest text-[8px] md:text-[10px]">Project ROI</span>
-                       <span className="text-white font-black text-lg">{project.roi}</span>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                       <span className="text-zinc-500 font-bold uppercase tracking-widest text-[8px] md:text-[10px]">Tenure</span>
-                       <span className="text-white font-black text-lg">{project.duration}</span>
-                    </div>
-                 </div>
-              </div>
-           </div>
+         const sdkLoaded = await loadRazorpayScript();
+         if (!sdkLoaded) throw new Error('Razorpay SDK failed to load.');
 
-           {/* The actual chart component */}
-           <InvestmentChart investment={investmentInput} roi={project.roi} duration={project.duration} />
-        </div>
+         const orderRes = await createPaymentOrderApi({
+            amount: parseFloat(amount),
+            projectId: project.id,
+            userId: savedUser?.id,
+         });
 
-        {/* 📋 Monthly Payout Schedule Table (Detailed transparency) */}
-        <div className="mt-16 md:mt-24 w-full">
-           <div className="flex items-center gap-4 mb-8 md:mb-12">
-              <div className="w-10 h-10 rounded-full bg-[#ccff00]/10 flex items-center justify-center border border-[#ccff00]/20">
-                 <FiTrendingUp className="text-[#ccff00]" />
-              </div>
-              <div className="flex flex-col">
-                 <h4 className="text-lg md:text-xl font-black uppercase tracking-tight">Payout Schedule</h4>
-                 <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest italic">Fixed Monthly Distributions</span>
-              </div>
-           </div>
+         if (!orderRes || orderRes.status !== 200) {
+            throw new Error(orderRes?.data?.message || 'Could not create payment order.');
+         }
 
-           <div className="overflow-x-auto rounded-[32px] border border-white/5 bg-zinc-900/20 backdrop-blur-3xl">
-              <table className="w-full text-left border-collapse">
-                 <thead>
-                    <tr className="border-b border-white/5">
-                       <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Month</th>
-                       <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Accrued Interest</th>
-                       <th className="px-6 md:px-10 py-6 text-[9px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest text-right">Total Account Value</th>
-                    </tr>
-                 </thead>
-                 <tbody>
-                    {[...Array(parseInt(project.duration) + 1)].map((_, i) => {
-                       const monthlyROI = (parseFloat(project.roi) || 0) / 100
-                       const monthlyInterest = investmentInput * monthlyROI
-                       const totalValue = (investmentInput || 0) + (monthlyInterest * i)
-                       
-                       return (
-                          <tr key={i} className={`border-b border-white/5 hover:bg-white/2 transition-colors ${i === parseInt(project.duration) ? 'bg-[#ccff00]/5' : ''}`}>
-                             <td className="px-6 md:px-10 py-5 text-xs md:text-sm font-bold text-zinc-400">
-                                {i === 0 ? 'Initial Deposit' : `Month ${i.toString().padStart(2, '0')}`}
-                             </td>
-                             <td className="px-6 md:px-10 py-5 text-xs md:text-sm font-black text-[#ccff00]">
-                                {i === 0 ? '₹0.00' : `+ ₹${(monthlyInterest * i).toLocaleString()}`}
-                             </td>
-                             <td className="px-6 md:px-10 py-5 text-sm md:text-lg font-black text-white text-right font-['Outfit'] tracking-tighter">
-                                ₹{totalValue.toLocaleString()}
-                             </td>
-                          </tr>
-                       )
-                    })}
-                 </tbody>
-              </table>
-           </div>
-           <p className="mt-6 text-[9px] text-zinc-500 font-bold uppercase tracking-widest flex items-center md:justify-center gap-2">
-              <span className="w-1.5 h-1.5 bg-[#ccff00] rounded-full animate-pulse" /> Final payout includes full capital redemption upon project maturity.
-           </p>
-        </div>
+         const { orderId, amount: orderAmount, currency, keyId } = orderRes.data;
 
-      </main>
-      <Footer />
-    </div>
-  )
+         const options = {
+            key: keyId,
+            amount: orderAmount,
+            currency,
+            name: 'Med Health Invest',
+            description: `Investment in ${project.title}`,
+            order_id: orderId,
+            prefill: {
+               name: savedUser?.username || '',
+               email: savedUser?.email || '',
+               contact: savedUser?.mobile || '',
+            },
+            theme: { color: '#000000' },
+            handler: async (response) => {
+               try {
+                  const verifyRes = await verifyPaymentApi({
+                     razorpay_order_id: response.razorpay_order_id,
+                     razorpay_payment_id: response.razorpay_payment_id,
+                     razorpay_signature: response.razorpay_signature,
+                     projectId: project.id,
+                     userId: savedUser?.id,
+                     amount: parseFloat(amount),
+                  });
+
+                  if (verifyRes?.data?.success) {
+                     navigate('/payment-success', { 
+                        state: { 
+                           amount, 
+                           paymentId: response.razorpay_payment_id, 
+                           projectTitle: project.title, 
+                           duration: project.duration 
+                        } 
+                     });
+                  } else {
+                     throw new Error('Verification failed.');
+                  }
+               } catch (err) {
+                  Swal.fire({
+                     icon: 'error',
+                     title: 'Verification Failed',
+                     text: err.message || 'Payment received but verification failed.',
+                     background: '#09090b',
+                     color: '#fff',
+                     confirmButtonColor: '#000000'
+                  });
+               }
+            },
+            modal: {
+               ondismiss: () => setPaymentLoading(false)
+            }
+         };
+
+         const rzp = new window.Razorpay(options);
+         rzp.open();
+
+      } catch (err) {
+         console.error('Payment error:', err);
+         const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'An unexpected error occurred.';
+         Swal.fire({
+            icon: 'error',
+            title: 'Payment Error',
+            text: errorMsg,
+            background: '#09090b',
+            color: '#fff',
+            confirmButtonColor: '#ccff00'
+         });
+      } finally {
+         setPaymentLoading(false);
+      }
+   };
+
+   if (loading) return <div className="min-h-screen bg-black text-white flex items-center justify-center font-['Poppins']">Loading project data...</div>;
+   if (!project) return <div className="min-h-screen bg-black text-white flex items-center justify-center font-['Poppins']">Project not found</div>;
+
+   const progress = (Number(project.collected || 0) / Number(project.target || 1)) * 100 || 0;
+
+   // Calculate timeline for ongoing projects
+   let daysRemaining = 0;
+   let maturityDateStr = 'Not Available';
+   if (project.status === 'ONGOING') {
+      const maturityDate = project.completionDate ? new Date(project.completionDate) : 
+                          (project.ongoingStartDate ? new Date(new Date(project.ongoingStartDate).getTime() + (parseInt(project.duration) * 30 * 24 * 60 * 60 * 1000)) : null);
+      
+      if (maturityDate) {
+         const now = new Date();
+         const diffTime = maturityDate - now;
+         daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+         maturityDateStr = maturityDate.toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+         });
+      }
+   }
+
+   return (
+      <div className="min-h-screen bg-black font-['Poppins'] text-white selection:bg-[#ccff00] selection:text-black">
+         <Navbar />
+
+         <main className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-20 pt-24 md:pt-32 pb-24">
+
+            <div className="flex flex-col gap-4 md:gap-6 mb-8 md:mb-10">
+               <div className="flex flex-wrap items-center gap-3">
+                  <span className="px-3 py-1 rounded-full bg-white text-black text-[9px] md:text-[10px] font-black uppercase tracking-widest">Active</span>
+                  <span className="px-3 py-1 rounded-full bg-zinc-900 border border-white/10 text-[#ccff00] text-[9px] md:text-[10px] font-black uppercase tracking-widest">{project.projectCategory}</span>
+               </div>
+               <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white tracking-tight leading-tight">
+                  {project.title}
+               </h1>
+            </div>
+
+            <div className="flex flex-col gap-4 md:gap-6 mb-12 md:mb-16">
+               <div className="relative w-full aspect-video rounded-[32px] md:rounded-[48px] overflow-hidden bg-zinc-900 border border-white/10 group shadow-2xl">
+                  {activeMedia?.type === 'video' ? (
+                     <video src={activeMedia.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
+                  ) : (
+                     <img src={activeMedia?.url} className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" alt={project.title} />
+                  )}
+               </div>
+
+               <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x touch-pan-x">
+                  {project.gallery.map((media, i) => (
+                     <div
+                        key={i}
+                        onClick={() => setActiveMedia(media)}
+                        className={`relative w-36 md:w-48 h-20 md:h-28 rounded-xl md:rounded-2xl overflow-hidden bg-zinc-900 border-2 cursor-pointer transition-all shrink-0 snap-center ${activeMedia?.url === media.url ? 'border-[#ccff00]' : 'border-white/5 opacity-60 hover:opacity-100'}`}
+                     >
+                        <img src={media.thumbnail} className="w-full h-full object-cover" alt="Thumb" />
+                     </div>
+                  ))}
+               </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row gap-6 md:gap-10 mb-16 md:mb-20 items-stretch w-full">
+               <div className="flex-1 bg-zinc-900 rounded-[32px] p-8 md:p-10 border border-white/10 shadow-3xl flex flex-col justify-between gap-8 transition-all hover:border-white/20">
+                  <div className="flex flex-col gap-8">
+                     <div className="flex justify-between items-end">
+                        <div className="flex flex-col">
+                           <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1">Amount Raised</span>
+                           <span className="text-3xl font-black text-white ">₹{project.collected.toLocaleString()}</span>
+                        </div>
+                        <div className="flex flex-col items-end">
+                           <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-1">Total Fund</span>
+                           <span className="text-3xl font-black text-white ">₹{project.target.toLocaleString()}</span>
+                        </div>
+                     </div>
+
+                     <div className="relative w-full h-4 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className="absolute top-0 left-0 h-full bg-[#ccff00] transition-all duration-2000" style={{ width: isLoaded ? `${progress}%` : '0%' }} />
+                     </div>
+
+                     {project.status === 'ACTIVE' ? (
+                        <button 
+                           onClick={handleInvestNowClick}
+                           disabled={paymentLoading}
+                           className="group/btn relative w-full py-6 bg-white text-black rounded-2xl text-[14px] font-black tracking-[0.2em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
+                        >
+                           <span className="relative z-10 flex items-center justify-center gap-2">
+                              {paymentLoading ? <><FiLoader className="animate-spin text-lg" /> Processing...</> : 'Invest Now'}
+                           </span>
+                           {!paymentLoading && (
+                              <div className="absolute inset-0 bg-[#ccff00] translate-y-full lg:group-hover/btn:translate-y-0 transition-transform duration-300" />
+                           )}
+                        </button>
+                     ) : (
+                        <div className="w-full py-6 bg-[#ccff00]/10 border border-[#ccff00]/20 text-[#ccff00] rounded-2xl text-[14px] font-black tracking-[0.2em] uppercase flex items-center justify-center gap-3">
+                           <FiShield className="text-xl" />
+                           Fully Funded
+                        </div>
+                     )}
+                  </div>
+               </div>
+
+               <div className="flex-1 bg-white rounded-[32px] p-8 md:p-10 flex flex-col justify-between gap-8">
+                  <div className="flex flex-col gap-6">
+                     <div className="flex flex-col gap-2">
+                        <span className="text-[10px] font-black text-black/40 uppercase">Project Yield</span>
+                        <div className="flex items-baseline gap-2">
+                           <span className="text-5xl font-black text-black ">{project.roi}</span>
+                        </div>
+                     </div>
+                     <div className="w-full h-px bg-black/10" />
+                     
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="flex flex-col gap-2">
+                           <span className="text-[10px] font-black text-black/40 uppercase">Capital Tenure</span>
+                           <div className="flex items-baseline gap-2">
+                              <span className="text-2xl font-black text-black">{project.duration}</span>
+                           </div>
+                        </div>
+
+                        {project.status === 'ONGOING' && (
+                           <>
+                              <div className="flex flex-col gap-2">
+                                 <span className="text-[10px] font-black text-black/40 uppercase">Days Left</span>
+                                 <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black text-black">{daysRemaining} Days</span>
+                                 </div>
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                 <span className="text-[10px] font-black text-black/40 uppercase">End Date</span>
+                                 <div className="flex items-baseline gap-2">
+                                    <span className="text-2xl font-black text-black whitespace-nowrap">{maturityDateStr}</span>
+                                 </div>
+                              </div>
+                           </>
+                        )}
+                     </div>
+                  </div>
+               </div>
+            </div>
+
+            {project.status === 'ACTIVE' && (
+               <div className="flex flex-col gap-10 md:gap-16 items-start">
+                  <div className="w-full flex flex-col md:flex-row justify-between items-end gap-8 bg-zinc-900/40 rounded-[24px] md:rounded-[32px] p-6 md:p-10 border border-white/5">
+                     <div className="flex flex-col gap-3 max-w-xl">
+                        <div className="flex items-center gap-2">
+                           <FiSettings className="text-[#ccff00]" />
+                           <h3 className="text-xl md:text-3xl font-bold text-white tracking-tight">Your Payout Simulator</h3>
+                        </div>
+                     </div>
+
+                     <div className="flex flex-col md:flex-row gap-6 w-full md:w-auto items-center">
+                        <div className="flex flex-col gap-2 w-full md:w-64">
+                           <label className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-zinc-400">Investment Amount (₹)</label>
+                           <input
+                              type="number"
+                              value={investmentInput}
+                              onChange={(e) => setInvestmentInput(e.target.value)}
+                              placeholder="Enter amount"
+                              className="w-full bg-black/50 border border-white/10 rounded-xl px-4 md:px-5 py-3 md:py-4 text-center text-lg md:text-xl font-black text-[#ccff00] focus:border-[#ccff00] outline-none"
+                           />
+                        </div>
+                     </div>
+                  </div>
+
+                  <ProfitCalculator investment={investmentInput} roi={project.roi} duration={project.duration} />
+               </div>
+            )}
+
+         </main>
+         <Footer />
+
+         <InvestmentModal 
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onConfirm={handleInvestNow}
+            projectTitle={project.title}
+            projectCategory={project.projectCategory}
+            targetAmount={project.target}
+            collectedAmount={project.collected}
+            minAmount={project.minAmount}
+            isExclusive={project.projectType === 'Exclusive'}
+         />
+      </div>
+   );
 }

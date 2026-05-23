@@ -1,12 +1,45 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import CompletedProjectCard from '../Home/HomeComponents/CompletedProjectCard'
-import { completedProjects } from '../../data/projects'
 import Navbar from '../Home/HomeComponents/Navbar'
 import Footer from '../../Components/Footer'
+import { getAllProjectsApi } from '../../services/allApi'
+import { BASE_URL } from '../../services/baseUrl'
 
 export default function ViewAllCompletedProjects() {
-  // Scroll to top on mount
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
+
   useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('medhealthinvestuser'));
+        const res = await getAllProjectsApi(user?.id)
+        if (res.status === 200) {
+          const completedOnes = res.data.projects.filter(p => p.status === 'COMPLETED' && p.projectType !== 'Exclusive')
+          const mapped = completedOnes.map(p => {
+             const images = JSON.parse(p.projectImages || '[]')
+             const mainImage = images.length > 0 ? `${BASE_URL}/${images[0].replace(/\\/g, '/')}` : ''
+             return {
+                ...p,
+                title: p.projectName,
+                category: p.projectCategory,
+                image: mainImage,
+                totalReturn: p.roi.toString().includes('%') ? p.roi : `${p.roi}%`,
+                duration: `${p.duration} Months`,
+                startDate: p.ongoingStartDate ? new Date(p.ongoingStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
+                targetDate: p.ongoingStartDate ? new Date(p.ongoingStartDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A', // Target met is usually when it starts
+                maturityDate: p.completionDate ? new Date(p.completionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
+             }
+          })
+          setProjects(mapped)
+        }
+        setLoading(false)
+      } catch (err) {
+        console.error("Error fetching completed projects:", err)
+        setLoading(false)
+      }
+    }
+    fetchProjects()
     window.scrollTo(0, 0)
   }, [])
 
@@ -40,11 +73,17 @@ export default function ViewAllCompletedProjects() {
 
         {/* Projects Grid with Staggered-feel Layout */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-x-8 md:gap-y-16">
-          {completedProjects.map((project, index) => (
-            <div key={project.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 150}ms` }}>
-              <CompletedProjectCard project={project} />
-            </div>
-          ))}
+          {loading ? (
+            <div className="col-span-full py-20 text-center text-zinc-500 font-medium italic">Loading completed assets...</div>
+          ) : projects.length > 0 ? (
+            projects.map((project, index) => (
+              <div key={project.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 150}ms` }}>
+                <CompletedProjectCard project={project} />
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full py-20 text-center text-zinc-500 font-medium italic">No completed projects found.</div>
+          )}
         </div>
 
         {/* Footer Navigation */}
@@ -52,7 +91,7 @@ export default function ViewAllCompletedProjects() {
            <div className="w-12 h-[2px] bg-[#ccff00] mb-8" />
            <p className="max-w-md text-zinc-500 text-[10px] font-black uppercase tracking-[0.4em] leading-loose">
              Institutional Exposure <br/> 
-             Refined Portfolio Management <br/>
+             Refined Project Management <br/>
              © 2026 Med Health Invest
            </p>
         </div>

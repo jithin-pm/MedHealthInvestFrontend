@@ -4,7 +4,7 @@ const steps = [
   {
     number: '01',
     title: 'Browse Projects',
-    desc: 'Explore our curated portfolio of vetted, high-performing investment projects — each with a clearly defined monthly return rate and lock-in period.',
+    desc: 'Explore our curated projects of vetted, high-performing investment projects — each with a clearly defined monthly return rate and lock-in period.',
     accent: '#84CC16',
   },
   {
@@ -74,7 +74,7 @@ export default function HomeSections() {
           {/* Section Header */}
           <div className="flex flex-col items-center text-center mb-20 gap-3">
             <span className="text-[10px] font-black tracking-[0.4em] uppercase text-white/30">How It Works</span>
-            <h2 className="text-4xl lg:text-6xl font-black text-white tracking-tighter leading-tight">
+            <h2 className="text-4xl lg:text-6xl font-black text-white leading-tight">
               Simple. Transparent.
               <br />
               <span className="font-['Playfair_Display'] italic font-normal text-white/60">Massively Rewarding.</span>
@@ -116,7 +116,7 @@ export default function HomeSections() {
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16">
             <div className="flex flex-col gap-3">
               <span className="text-[10px] font-black tracking-[0.4em] uppercase text-white/30">Featured Projects</span>
-              <h2 className="text-4xl lg:text-5xl font-black text-white tracking-tighter leading-tight">
+              <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
                 Where Your Money <br />
                 <span className="font-['Playfair_Display'] italic font-normal text-white/60">Works Hardest.</span>
               </h2>
@@ -149,7 +149,7 @@ export default function HomeSections() {
 
                   {/* Return highlight */}
                   <div className="flex items-baseline gap-2 py-4 border-y border-white/5">
-                    <span className="text-5xl font-black text-white tracking-tighter">{project.monthlyReturn}</span>
+                    <span className="text-5xl font-black text-white">{project.monthlyReturn}</span>
                     <div className="flex flex-col">
                       <span className="text-[10px] font-bold tracking-widest uppercase text-white/40">per month</span>
                       <span className="text-xs font-bold text-[#84CC16]">{project.annualReturn} / year</span>

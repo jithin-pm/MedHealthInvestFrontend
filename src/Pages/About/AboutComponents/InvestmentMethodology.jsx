@@ -87,7 +87,7 @@ export default function InvestmentMethodology() {
   ]
 
   return (
-    <section className="py-24 bg-gray-50 font-['Poppins']">
+    <section className="py-24 bg-gray-100 font-['Poppins']">
       <div className="max-w-[1200px] mx-auto px-6 lg:px-20">
         
         {/* Section Header */}

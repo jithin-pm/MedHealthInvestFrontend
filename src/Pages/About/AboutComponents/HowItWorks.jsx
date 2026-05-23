@@ -11,7 +11,7 @@ function ChevronLifecycle() {
   ]
 
   return (
-    <div className="relative w-full py-12 mb-8 bg-gray-50/50 rounded-[48px] p-8 md:p-16 border border-gray-100">
+    <div className="relative w-full py-12 mb-8 bg-gray-50/50 rounded-[48px] p-8 md:p-16 border-3 border-gray-100">
       <div className="flex flex-col md:flex-row gap-6 h-auto md:h-20 mb-12">
         {segments.map((seg, i) => {
           const Icon = seg.icon
@@ -47,7 +47,7 @@ function ChevronLifecycle() {
                  </span>
               </div>
               <p className="text-[13px] text-gray-500 leading-relaxed font-medium">
-                {seg.sub}. Our milestone-driven approach ensures predictability for all portfolio stakeholders.
+                {seg.sub}. Our milestone-driven approach ensures predictability for all project stakeholders.
               </p>
            </div>
          ))}
