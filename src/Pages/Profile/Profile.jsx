@@ -445,16 +445,7 @@ export default function Profile() {
           Swal.fire({
             icon: 'success',
             title: 'Verification Successful!',
-            html: `
-              <div class="text-left text-[13px] space-y-3 text-zinc-400 font-['Outfit'] border-t border-white/5 pt-4 mt-4">
-                <div class="flex justify-between"><span>Status</span> <b class="text-[#ccff00]">${info.account_status || info.status || 'VALID'}</b></div>
-                <div class="flex justify-between"><span>Registered Name</span> <b class="text-white">${info.name_at_bank || 'Verified User'}</b></div>
-                <div class="flex justify-between"><span>Bank Name</span> <b class="text-white">${info.bank_name || 'N/A'}</b></div>
-                <div class="flex justify-between"><span>Branch</span> <b class="text-white">${info.branch || 'N/A'}</b></div>
-                <div class="flex justify-between"><span>City</span> <b class="text-white">${info.city || 'N/A'}</b></div>
-                <div class="flex justify-between"><span>Match Score</span> <b class="text-[#ccff00]">${info.name_match_score || '100'}%</b></div>
-              </div>
-            `,
+            text: 'Your bank account has been successfully verified.',
             background: '#18181b', color: '#fff', confirmButtonColor: '#ccff00'
           })
           setIsBankModalOpen(false)
@@ -817,7 +808,7 @@ export default function Profile() {
                                  <div className="flex items-center justify-between lg:justify-end gap-10">
                                     <div className="text-left lg:text-right">
                                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Transaction Value</span>
-                                       <span className="text-2xl font-semibold text-white tabular-nums ">â‚¹{Number(inv.ledgerAmount).toLocaleString('en-IN')}</span>
+                                       <span className="text-2xl font-semibold text-white tabular-nums ">₹{Number(inv.ledgerAmount).toLocaleString('en-IN')}</span>
                                     </div>
 
                                     <div className="flex gap-2">
@@ -1419,3 +1410,4 @@ export default function Profile() {
     </div>
   )
 }
+

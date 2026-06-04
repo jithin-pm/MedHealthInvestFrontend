@@ -140,24 +140,24 @@ export const generateInvestmentReceipt = async (data, userData, action = 'downlo
     });
 
     // 4. Payback Proof Image
-    if ((isPayout || isRefund) && paybackProof) {
-        const imageHeight = 80;
-        const pHeight = doc.internal.pageSize.getHeight();
-        if (currentY + imageHeight > pHeight - 50) {
-            doc.addPage();
-            currentY = 30;
-        } else {
-            currentY += 15;
-        }
+    if (paybackProof) {
+        doc.addPage();
+        currentY = 20;
+        
         doc.setFontSize(10);
         doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
         doc.text('VERIFIED PAYMENT PROOF', 20, currentY);
-        currentY += 5;
+        currentY += 10;
         
         const base64Img = await getBase64ImageFromUrl(paybackProof);
         if (base64Img) {
             try {
+                // Calculate dimensions to maintain aspect ratio while keeping it large
+                // A4 page is ~210x297mm. tableWidth is pageWidth - 40.
                 const format = base64Img.toLowerCase().includes('png') ? 'PNG' : 'JPEG';
+                // Using a larger height for dedicated page
+                const imageHeight = 150; 
                 doc.addImage(base64Img, format, 20, currentY, tableWidth, imageHeight);
             } catch (e) {
                 console.error("doc.addImage failed", e);

@@ -43,6 +43,12 @@ export default function AuthForm() {
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
+  const [attemptsMessage, setAttemptsMessage] = useState(null);
+  const [lockoutEndTime, setLockoutEndTime] = useState(() => {
+    return localStorage.getItem('loginLockoutEndTime') || null;
+  });
+  const [countdownStr, setCountdownStr] = useState('');
+  
   const genderRef = useRef(null);
   const countryRef = useRef(null);
   const otpRefs = useRef([]);
@@ -70,6 +76,30 @@ export default function AuthForm() {
       document.removeEventListener('keydown', handleEscape);
     };
   }, []);
+
+  useEffect(() => {
+    let interval;
+    if (lockoutEndTime) {
+      interval = setInterval(() => {
+        const now = new Date().getTime();
+        const end = parseInt(lockoutEndTime, 10);
+        const distance = end - now;
+
+        if (distance <= 0) {
+          clearInterval(interval);
+          setLockoutEndTime(null);
+          localStorage.removeItem('loginLockoutEndTime');
+          setCountdownStr('');
+        } else {
+          const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+          setCountdownStr(`${hours}h ${minutes}m ${seconds}s`);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [lockoutEndTime]);
 
   const handleOtpChange = (index, value) => {
     if (isNaN(value)) return;
@@ -111,7 +141,24 @@ export default function AuthForm() {
     } catch (error) {
       console.error("Login error:", error);
       const errorMessage = error.response?.data?.message || 'Something went wrong. Please try again.';
-      showAlert('Error', errorMessage, 'error');
+      
+      // Clear password input on any failure
+      setPassword('');
+
+      if (errorMessage.toLowerCase().includes('locked')) {
+        let hours = 24;
+        const match = errorMessage.match(/(\d+)\s*hour/i);
+        if (match) hours = parseInt(match[1], 10);
+        
+        const endTime = new Date().getTime() + hours * 60 * 60 * 1000;
+        setLockoutEndTime(endTime.toString());
+        localStorage.setItem('loginLockoutEndTime', endTime.toString());
+        setAttemptsMessage(null);
+      } else if (errorMessage.toLowerCase().includes('attempt')) {
+        setAttemptsMessage(errorMessage);
+      } else {
+        showAlert('Error', errorMessage, 'error');
+      }
     }
   };
 
@@ -196,6 +243,15 @@ export default function AuthForm() {
               </label>
             </div>
 
+            {attemptsMessage && !lockoutEndTime && (
+              <div className="text-red-500 text-[11px] font-medium animate-pulse mb-1 mt-4">{attemptsMessage}</div>
+            )}
+            {lockoutEndTime && (
+              <div className="text-red-600 text-[11px] font-bold mb-1 mt-4">
+                Account locked. Try again in {countdownStr}
+              </div>
+            )}
+            
             {/* Floating Label Input: Password */}
             <div className="relative group">
               <input
@@ -203,7 +259,8 @@ export default function AuthForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 id="password"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+                disabled={!!lockoutEndTime}
+                className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium ${lockoutEndTime ? 'text-gray-400 cursor-not-allowed bg-transparent' : 'text-black bg-transparent'} border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10`}
                 placeholder=" "
                 required
               />
@@ -230,7 +287,8 @@ export default function AuthForm() {
 
             <button
               type="submit"
-              className="w-full py-4 mt-4 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+              disabled={!!lockoutEndTime}
+              className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${lockoutEndTime ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]'}`}
             >
               <span>Continue</span>
               <FiArrowRight className="text-base" />

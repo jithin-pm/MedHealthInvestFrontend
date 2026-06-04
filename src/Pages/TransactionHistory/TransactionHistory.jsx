@@ -274,11 +274,12 @@ const TransactionHistory = () => {
                                              }, user, 'view');
                                           } else {
                                              generateInvestmentReceipt({
-                                                amount: inv.amount,
-                                                paymentId: inv.paymentId,
-                                                projectTitle: inv.project?.projectName,
-                                                duration: inv.project?.duration
-                                             }, user, 'view');
+                                                 amount: inv.amount,
+                                                 paymentId: inv.paymentId,
+                                                 projectTitle: inv.project?.projectName,
+                                                 duration: inv.project?.duration,
+                                                 paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null
+                                              }, user, 'view');
                                           }
                                        }}
                                        className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#ccff00] hover:bg-[#ccff00] hover:text-black transition-all"
@@ -303,11 +304,12 @@ const TransactionHistory = () => {
                                              }, user, 'download');
                                           } else {
                                              generateInvestmentReceipt({
-                                                amount: inv.amount,
-                                                paymentId: inv.paymentId,
-                                                projectTitle: inv.project?.projectName,
-                                                duration: inv.project?.duration
-                                             }, user, 'download');
+                                                 amount: inv.amount,
+                                                 paymentId: inv.paymentId,
+                                                 projectTitle: inv.project?.projectName,
+                                                 duration: inv.project?.duration,
+                                                 paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null
+                                              }, user, 'download');
                                           }
                                        }}
                                        className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500 hover:text-white transition-all"

@@ -1,3 +1,4 @@
+import React from 'react'
 import Navbar from './HomeComponents/Navbar'
 import Banner from './HomeComponents/Banner'
 import AboutBrief from './HomeComponents/AboutBrief'
