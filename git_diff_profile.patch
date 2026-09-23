@@ -1,0 +1,455 @@
+﻿diff --git a/src/Pages/Profile/Profile.jsx b/src/Pages/Profile/Profile.jsx
+index 9174587..3feb4ba 100644
+--- a/src/Pages/Profile/Profile.jsx
++++ b/src/Pages/Profile/Profile.jsx
+@@ -389,26 +389,18 @@ export default function Profile() {
+         setIsVerifyingBank(false); return;
+       }
+ 
+-      // 3. IFSC Validation
++            // 3. IFSC Validation
+       const ifscRegex = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+       if (!ifscRegex.test(ifsc)) {
+         Swal.fire({ icon: 'warning', title: 'Invalid IFSC', text: 'Please enter a valid 11-digit IFSC code.', background: '#18181b', color: '#fff', confirmButtonColor: '#ccff00' });
+         setIsVerifyingBank(false); return;
+       }
+ 
+-      // 4. Phone Validation
+-      const phoneRegex = /^[6-9]\d{9}$/;
+-      if (!phoneRegex.test(phone)) {
+-        Swal.fire({ icon: 'warning', title: 'Invalid Phone', text: 'Please enter a valid 10-digit phone number.', background: '#18181b', color: '#fff', confirmButtonColor: '#ccff00' });
+-        setIsVerifyingBank(false); return;
+-      }
+-
+       const data = {
+         userId: user?.id,
+         bank_account: account,
+         ifsc: ifsc,
+-        name: bankData.name,
+-        phone: phone
++        name: bankData.name
+       }
+       const res = await verifyBankApi(data)
+       if (res.status === 200 && res.data.success) {
+@@ -429,7 +421,6 @@ export default function Profile() {
+             bankName: info.bank_name || 'N/A',
+             branch: info.branch || 'N/A',
+             city: info.city || 'N/A',
+-            payoutPhone: phone,
+             verifiedAt: new Date()
+           })
+ 
+@@ -532,7 +523,7 @@ export default function Profile() {
+ 
+         await Swal.fire({
+           icon: 'success',
+-          title: 'PAN Verified! ├ó┼ôΓÇ£',
++          title: 'PAN Verified! Γ£ô',
+           text: 'Proceed to verify your bank account for payouts.',
+           background: '#18181b', color: '#fff', confirmButtonColor: '#ccff00'
+         })
+@@ -864,404 +855,6 @@ export default function Profile() {
+                             <p className="text-zinc-600 text-xs mt-1.5 max-w-[280px]">
+                                Your transaction history is empty. Start investing in projects to see your ledger.
+                             </p>
+-                         </div>
+-                     )}
+-                  </div>
+-               </div>
+-
+-               <button 
+-                  onClick={() => navigate('/transaction-history')}
+-                  className="w-full py-6 bg-white text-black rounded-2xl text-[14px] font-black tracking-[0.2em] uppercase transition-all duration-300 hover:bg-[#ccff00] active:scale-[0.98] shadow-xl flex items-center justify-center gap-2"
+-               >
+-                  View Full Audit Statement <FiArrowRight />
+-               </button>
+-            </div>
+-         </div>
+-
+-      </main>
+-      <Footer />
+-
+-      {/* ├░┼╕ΓÇô┬╝├»┬╕┬Å Proof Modal */}
+-      {isProofModalOpen && (
+-         <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/10 backdrop-blur-xs">
+-            <div className="relative w-full max-w-4xl bg-zinc-900 border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+-               
+-               {/* Modal Header */}
+-               <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-zinc-800/50">
+-                  <div className="flex items-center gap-3">
+-                     <FiCheckCircle className="text-[#ccff00] text-xl" />
+-                     <h2 className="text-lg font-bold text-white tracking-tight">Audit Verification Proof</h2>
+-                  </div>
+-                  <div className="flex items-center gap-2">
+-                     <button 
+-                        onClick={() => handleDownload(selectedProof)}
+-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 text-zinc-500 hover:text-[#ccff00] transition-all"
+-                        title="Download Receipt"
+-                     >
+-                        <FiDownload size={20} />
+-                     </button>
+-                     <button
+-                        onClick={() => setIsProofModalOpen(false)}
+-                        className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 text-zinc-500 hover:text-white transition-all"
+-                     >
+-                        <FiX size={20} />
+-                     </button>
+-                  </div>
+-               </div>
+-
+-               <div className="p-8 flex flex-col items-center justify-center bg-black/20">
+-                  <div className="relative group/img max-h-[60vh] overflow-hidden rounded-2xl border border-white/5 shadow-2xl">
+-                     <img 
+-                        src={selectedProof} 
+-                        alt="Payment Proof" 
+-                        className="max-w-full h-auto object-contain"
+-                     />
+-                  </div>
+-                  <div className="mt-8 flex flex-col items-center text-center">
+-                     <div className="px-3 py-1 rounded-full bg-[#ccff00]/10 border border-[#ccff00]/20 mb-3">
+-                        <span className="text-[10px] font-black text-[#ccff00] uppercase tracking-[0.2em]">Verified Transaction</span>
+-                     </div>
+-                     <p className="text-zinc-500 text-sm font-medium">Digital Transfer Receipt ├óΓé¼┬ó Secured via MedHealth Invest Protocol</p>
+-                  </div>
+-               </div>
+-            </div>
+-         </div>
+-      )}
+-
+-      {/* ├░┼╕ΓÇ¥┬« Exclusive Enquiry Modal */}
+-      {isModalOpen && (
+-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+-           <div className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
+-              
+-              {/* Modal Header */}
+-              <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-zinc-800/50">
+-                 <div className="flex items-center gap-3">
+-                    <LuCrown className="text-[#ccff00] text-xl" />
+-                    <h2 className="text-lg font-bold text-white tracking-tight">Exclusive Project Request</h2>
+-                 </div>
+-                 <button
+-                  onClick={() => setIsModalOpen(false)}
+-                  className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/5 text-zinc-500 hover:text-white transition-all"
+-                 >
+-                    <FiX size={20} />
+-                 </button>
+-              </div>
+-
+-              <form onSubmit={handleSubmitEnquiry} className="p-8 space-y-5">
+-
+-                {/* Pre-filled user credentials (read-only) */}
+-                <div className="grid grid-cols-1 gap-4">
+-                  <div>
+-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Subject</label>
+-                    <input
+-                      type="text"
+-                      value="Request for Exclusive Project Access"
+-                      readOnly
+-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-3.5 text-sm font-bold text-[#ccff00] outline-none cursor-not-allowed"
+-                    />
+-                  </div>
+-
+-                  <div>
+-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Phone Number</label>
+-                    <div className="flex gap-2">
+-                      {/* Read-only flag + country code */}
+-                      <div className="flex items-center gap-2 px-3 py-3.5 bg-white/5 border border-white/10 rounded-xl cursor-not-allowed shrink-0">
+-                        <img
+-                          src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`}
+-                          alt={selectedCountry.name}
+-                          className="w-5 h-3.5 object-cover rounded-[2px]"
+-                        />
+-                        <span className="text-sm font-bold text-[#ccff00]">{selectedCountry.code}</span>
+-                      </div>
+-                      {/* Read-only phone number */}
+-                      <input
+-                        type="tel"
+-                        value={phone}
+-                        readOnly
+-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-5 py-3.5 text-sm font-bold text-[#ccff00] outline-none cursor-not-allowed"
+-                      />
+-                    </div>
+-                  </div>
+-
+-                  <div>
+-                    <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Your Message</label>
+-                    <textarea
+-                      rows="5"
+-                      placeholder="Describe your investment goals or capital deployment requirements..."
+-                      className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm font-medium text-white outline-none focus:border-[#ccff00]/50 transition-all placeholder:text-zinc-700 resize-none"
+-                      value={message}
+-                      onChange={(e) => setMessage(e.target.value)}
+-                      required
+-                    />
+-                  </div>
+-                </div>
+-
+-                <button
+-                  type="submit"
+-                  disabled={isSubmitting}
+-                  className="group w-full py-5 bg-[#ccff00] text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase transition-all duration-300 hover:bg-white active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+-                >
+-                  {isSubmitting ? (
+-                    <FiLoader className="animate-spin text-lg" />
+-                  ) : (
+-                    <>Send Request <FiSend className="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" /></>
+-                  )}
+-                </button>
+-
+-                <p className="text-[12px] text-zinc-600 text-center font-bold ">
+-                  Private concierge response within 24 business hours.
+-                </p>
+-              </form>
+-           </div>
+-        </div>
+-      )}
+-
+-      {/* ├░┼╕┬Å┬ª Bank Verification Modal (Auth Style Split Screen) */}
+-      {isBankModalOpen && (
+-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6 bg-black/80 backdrop-blur-md animate-in fade-in duration-500">
+-           <div className="relative w-full max-w-5xl h-auto md:h-[600px] bg-white border border-gray-100 shadow-[0_30px_100px_-20px_rgba(0,0,0,0.5)] rounded-[32px] overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 duration-300">
+-              
+-              {/* LEFT PANEL: Institutional Branding (Hidden on small mobile if needed, but here we'll keep it) */}
+-              <div className="md:w-1/2 bg-black relative p-10 flex flex-col justify-between overflow-hidden">
+-                {/* Background Grid/Glow */}
+-                <div className="absolute inset-0 pointer-events-none opacity-20" 
+-                  style={{ backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`, backgroundSize: '40px 40px' }} 
+-                />
+-                <div className="absolute -top-24 -left-24 w-64 h-64 bg-[#ccff00]/10 rounded-full blur-[100px]" />
+-                
+-                <div className="relative z-10">
+-                  <div className="mb-12">
+-                    <Logo size="md" />
+-                  </div>
+-
+-                  <h2 className="text-4xl lg:text-5xl font-black text-white leading-none tracking-tighter mb-6 font-['Outfit']">
+-                    Verify Your<br/>
+-                    <span className="font-['Playfair_Display'] italic font-normal text-white/60">Payout Identity.</span>
+-                  </h2>
+-                  <p className="text-white/40 text-[13px] font-medium leading-relaxed max-w-xs">
+-                    Join our verified investment circle. We use secure penny-drop technology to validate your institutional-grade payout credentials instantly.
+-                  </p>
+-                </div>
+-
+-                <div className="relative z-10 pt-10 border-t border-white/10">
+-                  <div className="flex items-center gap-3">
+-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+-                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Secured by Cashfree Secure ID</span>
+-                  </div>
+-                </div>
+-
+-                {/* Close Button Mobile Overlay */}
+-                <button
+-                  onClick={() => setIsBankModalOpen(false)}
+-                  className="absolute top-6 right-6 w-10 h-10 rounded-full flex items-center justify-center bg-white/5 text-white/40 hover:text-white transition-all md:hidden"
+-                >
+-                    <FiX size={20} />
+-                </button>
+-              </div>
+-
+-              {/* RIGHT PANEL: The Form */}
+-              <div className="md:w-1/2 bg-white p-6 md:p-10 overflow-y-auto custom-scrollbar relative flex flex-col">
+-                 {/* Close Button Desktop */}
+-                 <button
+-                    onClick={() => setIsBankModalOpen(false)}
+-                    className="absolute top-8 right-8 w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-400 hover:text-black transition-all hidden md:flex"
+-                  >
+-                      <FiX size={20} />
+-                 </button>
+-
+-                 <div className="mb-4">
+-                    <h3 className="text-2xl font-bold text-black tracking-tight font-['Outfit'] mb-1">
+-                      {verificationTab === 'bank' ? 'Bank Account Verification.' : 'Identity (PAN) Verification.'}
+-                    </h3>
+-                    <p className="text-gray-400 text-xs font-medium mb-4">
+-                      Complete the form to authorize payouts.
+-                    </p>
+-                 </div>
+-
+-                 {verificationTab === 'bank' ? (
+-                   <form onSubmit={handleVerifyBank} className="flex flex-col flex-1 space-y-3">
+-                      {/* 1. Account Holder Name */}
+-                      <div className="relative group">
+-                        <input
+-                          type="text"
+-                          value={bankData.name}
+-                          onChange={(e) => setBankData({ ...bankData, name: e.target.value })}
+-                          id="holder-name"
+-                          className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-200 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+-                          placeholder=" "
+-                          required
+-                        />
+-                        <label 
+-                          htmlFor="holder-name" 
+-                          className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+-                        >
+-                          Account Holder Name
+-                        </label>
+-                      </div>
+-
+-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+-                        {/* 2. Account Number */}
+-                        <div className="relative group">
+-                          <input
+-                            type={showAccountNumber ? "text" : "password"}
+-                            value={bankData.account}
+-                            onChange={(e) => setBankData({ ...bankData, account: e.target.value })}
+-                            id="account-number"
+-                            className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-200 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+-                            placeholder=" "
+-                            required
+-                          />
+-                          <label 
+-                            htmlFor="account-number" 
+-                            className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+-                          >
+-                            Bank Account No.
+-                          </label>
+-                          <button
+-                            type="button"
+-                            onClick={() => setShowAccountNumber(!showAccountNumber)}
+-                            className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors"
+-                          >
+-                            {showAccountNumber ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+-                          </button>
+-                        </div>
+-
+-                        {/* 3. Confirm Account Number */}
+-                        <div className="relative group">
+-                          <input
+-                            type={showConfirmAccountNumber ? "text" : "password"}
+-                            value={bankData.confirmAccount}
+-                            onChange={(e) => setBankData({ ...bankData, confirmAccount: e.target.value })}
+-                            id="confirm-account-number"
+-                            className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-200 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+-                            placeholder=" "
+-                            required
+-                          />
+-                          <label 
+-                            htmlFor="confirm-account-number" 
+-                            className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+-                          >
+-                            Confirm Account No.
+-                          </label>
+-                          <button
+-                            type="button"
+-                            onClick={() => setShowConfirmConfirmAccountNumber(!showConfirmAccountNumber)}
+-                            className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors"
+-                          >
+-                            {showConfirmAccountNumber ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+-                          </button>
+-                        </div>
+-                      </div>
+-
+-                      {/* 4. IFSC Code */}
+-                      <div className="relative group">
+-                        <input
+-                          type="text"
+-                          value={bankData.ifsc}
+-                          onChange={(e) => setBankData({ ...bankData, ifsc: e.target.value.toUpperCase() })}
+-                          id="ifsc-code"
+-                          className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-200 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors uppercase"
+-                          placeholder=" "
+-                          required
+-                        />
+-                        <label 
+-                          htmlFor="ifsc-code" 
+-                          className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+-                        >
+-                          IFSC Code
+-                        </label>
+-                      </div>
+-
+-                      {/* 5. Phone Number Group (Separate Row) */}
+-                      <div className="relative group" ref={bankCountryRef}>
+-                        <div className="flex items-end gap-3 transition-colors group-focus-within:border-black">
+-                          {/* Country Selector */}
+-                          <div className="relative border-b border-gray-300 min-w-[85px]">
+-                            <button
+-                              type="button"
+-                              onClick={() => setIsBankCountryOpen(!isBankCountryOpen)}
+-                              className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
+-                            >
+-                              <div className="flex items-center gap-2">
+-                                <img 
+-                                  src={`https://flagcdn.com/w40/${selectedBankCountry.iso}.png`} 
+-                                  alt="" 
+-                                  className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm mb-0.5"
+-                                />
+-                                <span className="text-[14px] font-medium text-black">{selectedBankCountry.code}</span>
+-                              </div>
+-                              <FiChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isBankCountryOpen ? 'rotate-180' : ''}`} />
+-                            </button>
+-
+-                            {/* Country Dropdown */}
+-                            {isBankCountryOpen && (
+-                              <div className="absolute top-full left-0 w-[260px] mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] z-[60] animate-fade-in-up-short overflow-hidden">
+-                                <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
+-                                  <FiSearch className="text-gray-400 text-xs" />
+-                                  <input 
+-                                    type="text"
+-                                    placeholder="Search country..."
+-                                    value={bankCountrySearch}
+-                                    onChange={(e) => setBankCountrySearch(e.target.value)}
+-                                    className="w-full text-[12px] text-black bg-transparent border-0 focus:ring-0 outline-none placeholder:text-gray-400"
+-                                    autoFocus
+-                                  />
+-                                </div>
+-                                <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+-                                  {COUNTRIES
+-                                    .filter(c => c.name.toLowerCase().includes(bankCountrySearch.toLowerCase()) || c.code.includes(bankCountrySearch))
+-                                    .map((c) => (
+-                                    <button
+-                                      key={c.name}
+-                                      type="button"
+-                                      onClick={() => {
+-                                        setSelectedBankCountry(c);
+-                                        setIsBankCountryOpen(false);
+-                                        setBankCountrySearch('');
+-                                      }}
+-                                      className="w-full text-left px-4 py-3 text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
+-                                    >
+-                                      <div className="flex items-center gap-3">
+-                                        <img 
+-                                          src={`https://flagcdn.com/w40/${c.iso}.png`} 
+-                                          alt="" 
+-                                          className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm"
+-                                        />
+-                                        <span className="truncate max-w-[140px]">{c.name}</span>
+-                                      </div>
+-                                      <span className="text-gray-400 text-[11px] font-normal">{c.code}</span>
+-                                    </button>
+-                                  ))}
+-                                </div>
+-                              </div>
+-                            )}
+-                          </div>
+-
+-                          {/* Phone Input */}
+-                          <div className="relative flex-1">
+-                            <input
+-                              type="tel"
+-                              value={bankData.phone}
+-                              onChange={(e) => setBankData({ ...bankData, phone: e.target.value })}
+-                              id="bank-phone"
+-                              className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+-                              placeholder=" "
+-                              required
+-                            />
+-                            <label 
+-                              htmlFor="bank-phone" 
+-                              className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+-                            >
+-                              Phone Number
+-                            </label>
+-                          </div>
+-                        </div>
+-                      </div>
+-
+-                      <div className="mt-auto pt-7 pb-5">
+-                        <button
+-                          type="submit"
+-                          disabled={isVerifyingBank}
+                           className="w-full py-5 bg-black text-white text-[11px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-10 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em] disabled:opacity-50 disabled:cursor-not-allowed group shadow-2xl"
+                         >
+                           <span>{isVerifyingBank ? 'Authenticating...' : 'Submit Verification'}</span>

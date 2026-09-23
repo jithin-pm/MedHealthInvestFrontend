@@ -123,7 +123,6 @@ const ExclusiveProjectCard = ({ project }) => {
 }
 
 export default function ExclusiveProjects() {
-  const [activeProjects, setActiveProjects] = useState([])
   const [ongoingProjects, setOngoingProjects] = useState([])
   const [completedProjects, setCompletedProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -133,7 +132,7 @@ export default function ExclusiveProjects() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [phone, setPhone] = useState('')
   const [selectedCountry, setSelectedCountry] = useState({ code: '+91', iso: 'in', name: 'India' })
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState('I am interested in exploring exclusive investment opportunities. Please contact me with further details on how I can participate in these exclusive projects.')
 
   useEffect(() => {
     const fetchProjects = async () => {
@@ -144,7 +143,7 @@ export default function ExclusiveProjects() {
           return
         }
         const user = JSON.parse(savedUser)
-        if (user.mobile) setPhone(user.mobile)
+        if (user.mobileNumber) setPhone(String(user.mobileNumber))
         if (user.countryCode) {
           setSelectedCountry({ code: user.countryCode, iso: user.countryIso || 'in', name: 'Country' })
         }
@@ -152,7 +151,6 @@ export default function ExclusiveProjects() {
         const res = await getAllProjectsApi(user.id)
         if (res.status === 200) {
           const exclusive = res.data.projects.filter(p => p.projectType === 'Exclusive')
-          setActiveProjects(exclusive.filter(p => p.status === 'ACTIVE'))
           setOngoingProjects(exclusive.filter(p => p.status === 'ONGOING'))
           setCompletedProjects(exclusive.filter(p => p.status === 'COMPLETED'))
         }
@@ -225,18 +223,34 @@ export default function ExclusiveProjects() {
 
   const handleSubmitEnquiry = async (e) => {
     e.preventDefault()
+    
+    if (!phone) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Phone Required',
+        text: 'Please enter a valid phone number.',
+        background: '#18181b',
+        color: '#fff',
+        confirmButtonColor: '#ccff00'
+      })
+      return
+    }
+
     setIsSubmitting(true)
     try {
-      const savedUser = JSON.parse(localStorage.getItem('medhealthinvestuser'))
+      const savedUser = JSON.parse(localStorage.getItem('medhealthinvestuser')) || {}
       
-      const res = await saveEnquiryApi({
-        name: savedUser.username || 'Exclusive User',
-        email: savedUser.email,
-        phone: `${selectedCountry.code} ${phone}`,
+      const payload = {
+        fullname: savedUser.fullName || savedUser.fullname || savedUser.name || savedUser.username || 'Exclusive User',
+        email: savedUser.email || 'user@example.com',
+        countryCode: selectedCountry?.code || '+91',
+        phone: phone,
         subject: "Interest in More Exclusive Opportunities",
-        message: message,
+        message: message || "I am interested in exploring exclusive investment opportunities. Please contact me with further details on how I can participate in these exclusive projects.",
         enquiryType: "Exclusive"
-      })
+      }
+      
+      const res = await saveEnquiryApi(payload)
 
       if (res.status === 200) {
         Swal.fire({
@@ -327,11 +341,6 @@ export default function ExclusiveProjects() {
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
-            <Section 
-              title="Active Projects" 
-              projects={activeProjects} 
-              emptyText="No active exclusive assets at this time."
-            />
             <Section 
               title="Ongoing Projects" 
               projects={ongoingProjects} 
@@ -425,12 +434,13 @@ export default function ExclusiveProjects() {
                         />
                         <span className="text-sm font-bold text-[#ccff00]">{selectedCountry.code}</span>
                       </div>
-                      {/* Read-only phone number */}
+                      {/* Editable phone number */}
                       <input
                         type="tel"
                         value={phone}
-                        readOnly
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-5 py-3.5 text-sm font-bold text-[#ccff00] outline-none cursor-not-allowed"
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Enter phone number"
+                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-5 py-3.5 text-sm font-medium text-white outline-none focus:border-[#ccff00]/50 transition-all"
                       />
                     </div>
                   </div>

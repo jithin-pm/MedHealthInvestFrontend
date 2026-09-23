@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../Home/HomeComponents/Navbar';
 import Footer from '../../Components/Footer';
-import { getUserInvestmentsApi } from '../../Services/allApi';
+import { getUserInvestmentsApi, getUserSpecialInvestmentsApi, getSpecialPayoutScheduleApi } from '../../Services/allApi';
 import { BASE_URL } from '../../Services/baseUrl';
 import {
    FiArrowLeft,
@@ -31,10 +31,34 @@ const TransactionHistory = () => {
          try {
             const user = JSON.parse(localStorage.getItem('medhealthinvestuser'));
             if (user) {
-               const res = await getUserInvestmentsApi(user.id);
-               if (res.status === 200) {
-                  setTransactions(res.data.investments || []);
+               const [normalRes, specialRes] = await Promise.all([
+                  getUserInvestmentsApi(user.id),
+                  getUserSpecialInvestmentsApi(user.id)
+               ]);
+
+               let normalInvestments = [];
+               let specialInvestments = [];
+
+               if (normalRes.status === 200) {
+                  normalInvestments = normalRes.data.investments || [];
                }
+               
+               if (specialRes.status === 200 && specialRes.data?.success) {
+                  specialInvestments = specialRes.data.investments || [];
+                  
+                  // Fetch payouts for all special investments
+                  const specialPayoutsPromises = specialInvestments.map(inv => 
+                     getSpecialPayoutScheduleApi(inv.id)
+                  );
+                  const payoutsResponses = await Promise.all(specialPayoutsPromises);
+                  
+                  specialInvestments.forEach((inv, index) => {
+                     inv.isSpecial = true;
+                     inv.payouts = payoutsResponses[index].status === 200 ? payoutsResponses[index].data.payouts : [];
+                  });
+               }
+
+               setTransactions([...normalInvestments, ...specialInvestments]);
             }
          } catch (err) {
             console.error("Error fetching transaction history:", err);
@@ -69,33 +93,62 @@ const TransactionHistory = () => {
    const processedTransactions = React.useMemo(() => {
       const ledger = [];
       transactions.forEach(inv => {
-         // 1. Always add the Investment (Debit) entry
-         ledger.push({
-            ...inv,
-            ledgerType: 'DEBIT',
-            ledgerDate: inv.created_at,
-            ledgerAmount: Number(inv.amount),
-            ledgerRef: `INV-${String(inv.id).padStart(6, '0')}`
-         });
-
-         // 2. If paid back, add the Settlement (Credit) entry
-         if (inv.paybackStatus === 'PAID') {
-            const isRefund = inv.project?.status === 'EXPIRED' || 
-                           (inv.project?.status === 'COMPLETED' && Number(inv.project?.collectedAmount) < Number(inv.project?.targetAmount));
-            const roi = isRefund ? 0 : Number(inv.project?.roi || 0);
-            const duration = isRefund ? 1 : Number(inv.project?.duration || 1);
-            const principal = Number(inv.amount);
-            const interest = (principal * roi * duration) / 100;
-            const totalMaturity = principal + interest;
-
-            ledger.push({
-               ...inv,
-               ledgerType: 'CREDIT',
-               isRefund: isRefund,
-               ledgerDate: inv.updated_at || inv.created_at,
-               ledgerAmount: totalMaturity,
-               ledgerRef: `PAY-${String(inv.id).padStart(6, '0')}`
-            });
+         if (inv.isSpecial) {
+             // 1. Initial Investment (Debit)
+             ledger.push({
+                ...inv,
+                ledgerType: 'DEBIT',
+                ledgerDate: inv.created_at,
+                ledgerAmount: Number(inv.amount || inv.amountInvested),
+                ledgerRef: `SP-INV-${String(inv.id).padStart(6, '0')}`
+             });
+  
+             if (inv.payouts && inv.payouts.length > 0) {
+                inv.payouts.forEach(p => {
+                   ledger.push({
+                      ...inv, 
+                      ledgerType: 'CREDIT',
+                      isRefund: false,
+                      ledgerDate: p.paidAt || p.created_at,
+                      ledgerAmount: Number(p.totalPaid),
+                      capitalPaid: Number(p.capitalPaid),
+                      roiPaid: Number(p.roiPaid),
+                      ledgerRef: `SP-PAY-${String(p.id).padStart(6, '0')}`,
+                      paybackProof: p.paybackProof
+                   });
+                });
+             }
+         } else {
+             // 1. Always add the Investment (Debit) entry
+             ledger.push({
+                ...inv,
+                ledgerType: 'DEBIT',
+                ledgerDate: inv.created_at,
+                ledgerAmount: Number(inv.amount),
+                ledgerRef: `INV-${String(inv.id).padStart(6, '0')}`
+             });
+    
+             // 2. If paid back, add the Settlement (Credit) entry
+             if (inv.paybackStatus === 'PAID') {
+                const isRefund = inv.project?.status === 'EXPIRED' || 
+                               (inv.project?.status === 'COMPLETED' && Number(inv.project?.collectedAmount) < Number(inv.project?.targetAmount));
+                const roi = isRefund ? 0 : Number(inv.project?.roi || 0);
+                const duration = isRefund ? 1 : Number(inv.project?.duration || 1);
+                const principal = Number(inv.amount);
+                const interest = (principal * roi * duration) / 100;
+                const totalMaturity = principal + interest;
+    
+                ledger.push({
+                   ...inv,
+                   ledgerType: 'CREDIT',
+                   isRefund: isRefund,
+                   ledgerDate: inv.updated_at || inv.created_at,
+                   ledgerAmount: totalMaturity,
+                   capitalPaid: principal,
+                   roiPaid: interest,
+                   ledgerRef: `PAY-${String(inv.id).padStart(6, '0')}`
+                });
+             }
          }
       });
 
@@ -152,7 +205,7 @@ const TransactionHistory = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px] space-y-2">
                   <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total Deployments</span>
-                  <p className="text-3xl font-black text-white">₹{transactions.reduce((acc, inv) => acc + Number(inv.amount), 0).toLocaleString('en-IN')}</p>
+                  <p className="text-3xl font-black text-white">₹{transactions.reduce((acc, inv) => acc + Number(inv.amount || inv.amountInvested), 0).toLocaleString('en-IN')}</p>
                </div>
                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px] space-y-2">
                   <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Settled Payouts</span>
@@ -230,28 +283,10 @@ const TransactionHistory = () => {
                               <div className="flex flex-col">
                                  <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.2em] mb-2 lg:hidden">Financial Settlement</span>
 
-                                 <div className="flex flex-col gap-1">
-                                    {inv.ledgerType === 'CREDIT' && (
-                                       <div className="flex flex-col">
-                                          <div className="flex items-center gap-2">
-                                             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Principal:</span>
-                                             <span className="text-[10px] font-bold text-white">₹ {Number(inv.amount).toLocaleString()}</span>
-                                          </div>
-                                          {!inv.isRefund && (
-                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Yield:</span>
-                                                <span className="text-[10px] font-bold text-[#ccff00]">
-                                                   ₹ {Math.round(inv.ledgerAmount - inv.amount).toLocaleString()}
-                                                </span>
-                                             </div>
-                                          )}
-                                       </div>
-                                    )}
+                                 <div className="flex flex-col">
                                     <span className={`text-xl font-bold tabular-nums ${inv.ledgerType === 'CREDIT' ? 'text-[#ccff00]' : 'text-white'}`}>
                                        ₹ {Number(inv.ledgerAmount).toLocaleString('en-IN')}
                                     </span>
-
-
                                  </div>
                               </div>
 
@@ -261,29 +296,15 @@ const TransactionHistory = () => {
                                     {/* 1. VIEW ACTION (Paperclip) */}
                                     <button
                                        onClick={() => {
-                                          const user = JSON.parse(localStorage.getItem('medhealthinvestuser'));
-                                          if (inv.ledgerType === 'CREDIT') {
-                                             generateInvestmentReceipt({
-                                                amount: inv.ledgerAmount,
-                                                paymentId: inv.ledgerRef,
-                                                projectTitle: inv.project?.projectName,
-                                                duration: inv.project?.duration,
-                                                isPayout: !inv.isRefund,
-                                                isRefund: inv.isRefund,
-                                                paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null
-                                             }, user, 'view');
-                                          } else {
-                                             generateInvestmentReceipt({
-                                                 amount: inv.amount,
-                                                 paymentId: inv.paymentId,
-                                                 projectTitle: inv.project?.projectName,
-                                                 duration: inv.project?.duration,
-                                                 paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null
-                                              }, user, 'view');
+                                          const proofImage = inv.ledgerType === 'CREDIT' ? inv.paybackProof : (inv.paymentProof || inv.paybackProof);
+                                          if (proofImage) {
+                                             const fileUrl = proofImage.startsWith('http') ? proofImage : `${BASE_URL}/${proofImage.replace(/^[\/\\]+/, '')}`;
+                                             setSelectedProof(fileUrl);
+                                             setIsProofModalOpen(true);
                                           }
                                        }}
                                        className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#ccff00] hover:bg-[#ccff00] hover:text-black transition-all"
-                                       title={inv.ledgerType === 'CREDIT' ? (inv.isRefund ? "View Refund Receipt" : "View Payout Receipt") : "View Investment Receipt"}
+                                       title={inv.ledgerType === 'CREDIT' ? (inv.isRefund ? "View Refund Proof" : "View Payout Proof") : "View Investment Proof"}
                                     >
                                        <FiPaperclip size={20} />
                                     </button>
@@ -300,15 +321,17 @@ const TransactionHistory = () => {
                                                 duration: inv.project?.duration,
                                                 isPayout: !inv.isRefund,
                                                 isRefund: inv.isRefund,
-                                                paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null
+                                                paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null,
+                                                projectType: inv.isSpecial ? 'SPECIAL' : (inv.project?.projectType || 'STANDARD')
                                              }, user, 'download');
                                           } else {
                                              generateInvestmentReceipt({
-                                                 amount: inv.amount,
+                                                 amount: inv.amount || inv.amountInvested,
                                                  paymentId: inv.paymentId,
                                                  projectTitle: inv.project?.projectName,
                                                  duration: inv.project?.duration,
-                                                 paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null
+                                                 paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null,
+                                                 projectType: inv.isSpecial ? 'SPECIAL' : (inv.project?.projectType || 'STANDARD')
                                               }, user, 'download');
                                           }
                                        }}

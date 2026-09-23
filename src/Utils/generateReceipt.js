@@ -18,7 +18,7 @@ const getBase64ImageFromUrl = async (url) => {
 };
 
 export const generateInvestmentReceipt = async (data, userData, action = 'download') => {
-    const { amount, paymentId, projectTitle, duration, isPayout, isRefund, paybackProof } = data;
+    const { amount, paymentId, projectTitle, duration, isPayout, isRefund, paybackProof, projectType = 'STANDARD' } = data;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     
@@ -121,7 +121,8 @@ export const generateInvestmentReceipt = async (data, userData, action = 'downlo
     // Table 2: Details
     const table2Data = [
         ['Project Name', projectTitle || 'N/A'],
-        ['ROI (Annual)', isRefund ? 'N/A (Capital Refund)' : '18% Annual ROI'],
+        ['Project Type', projectType],
+        ['ROI (Monthly)', isRefund ? 'N/A (Capital Refund)' : '1.5% Monthly ROI'],
         ['Duration', duration || 'N/A']
     ];
 

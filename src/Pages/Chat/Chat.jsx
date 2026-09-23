@@ -7,6 +7,9 @@ import { getChatMessagesApi, uploadChatFileApi, deleteChatMessageApi } from '../
 import { BASE_URL } from '../../Services/baseUrl';
 import { BsThreeDotsVertical } from 'react-icons/bs';
 import { TbChecks } from 'react-icons/tb';
+import { PiPhoneCallBold } from 'react-icons/pi';
+import { MdPhoneMissed } from 'react-icons/md';
+import AudioCall from '../../Components/AudioCall';
 
 export default function Chat() {
   const navigate = useNavigate();
@@ -19,6 +22,17 @@ export default function Chat() {
   const [linkUrl, setLinkUrl] = useState('');
   const [mediaModal, setMediaModal] = useState({ isOpen: false, url: '', type: '' });
   const [activeMenu, setActiveMenu] = useState(null); // msg id of open menu
+  const [callState, setCallState] = useState({
+    isOpen: false,
+    isIncoming: false,
+    isOutgoing: false,
+    callerName: '',
+    channelName: '',
+    callerId: null,
+    callerRole: null,
+    remoteStatus: null,
+    reason: null
+  });
   
   const fileInputRef = useRef(null);
   const mediaRecorderRef = useRef(null);
@@ -93,6 +107,57 @@ export default function Chat() {
         }
       });
 
+      // Call Socket Events
+      newSocket.on('incoming_call', (data) => {
+        console.log("INCOMING CALL RECEIVED (User):", data);
+        setCallState({
+          isOpen: true,
+          isIncoming: true,
+          isOutgoing: false,
+          callerName: data.callerName || 'Support Agent',
+          channelName: data.channelName,
+          callerId: data.callerId,
+          callerRole: data.callerRole,
+          remoteStatus: null,
+          reason: null
+        });
+      });
+
+      newSocket.on('call_accepted', (data) => {
+        setCallState(prev => {
+          if (prev.channelName === data.channelName) {
+            if (prev.isIncoming) {
+              return { ...prev, isOpen: false };
+            }
+            return { ...prev, remoteStatus: 'accepted' };
+          }
+          return prev;
+        });
+      });
+
+      newSocket.on('call_status', (data) => {
+        setCallState(prev => {
+          if (prev.isOpen && prev.remoteStatus !== 'accepted' && prev.remoteStatus !== 'rejected') {
+            return { ...prev, remoteStatus: data.status };
+          }
+          return prev;
+        });
+      });
+
+      newSocket.on('call_rejected', (data) => {
+        const reason = data?.reason || 'declined';
+        setCallState(prev => {
+          if (prev.isIncoming) {
+            return { ...prev, isOpen: false };
+          }
+          return { ...prev, remoteStatus: 'rejected', reason: reason };
+        });
+      });
+
+      newSocket.on('call_ended', () => {
+        setCallState(prev => ({ ...prev, isOpen: false }));
+      });
+
       return () => {
         newSocket.disconnect();
       };
@@ -101,6 +166,73 @@ export default function Chat() {
       navigate('/login');
     }
   }, [navigate]);
+
+  const initiateCall = () => {
+    if (!socket || !user) return;
+    const channelName = `call_medhealth_${user.id}_${Date.now()}`;
+    
+    socket.emit('initiate_call', {
+      callerId: user.id,
+      receiverId: 'admin',
+      receiverRole: 'admin',
+      channelName,
+      callerName: user.fullname || user.name || 'User',
+      isVideo: false
+    });
+
+    setCallState({
+      isOpen: true,
+      isIncoming: false,
+      isOutgoing: true,
+      callerName: 'Support Agent',
+      channelName,
+      callerId: user.id,
+      callerRole: 'user',
+      remoteStatus: 'calling',
+      reason: null
+    });
+  };
+
+  const acceptCall = () => {
+    if (socket && callState.channelName) {
+      socket.emit('accept_call', {
+        callerId: callState.callerId || 'admin',
+        callerRole: callState.callerRole || 'admin',
+        channelName: callState.channelName
+      });
+      setCallState(prev => ({ ...prev, isIncoming: false, isOutgoing: false }));
+    }
+  };
+
+  const rejectCall = (reason = 'declined') => {
+    if (socket && callState.channelName) {
+      socket.emit('reject_call', {
+        targetId: callState.callerId || 'admin',
+        targetRole: 'admin',
+        channelName: callState.channelName,
+        reason: reason
+      });
+      
+      if (callState.isOutgoing && reason === 'timeout') {
+        setCallState(prev => ({ ...prev, remoteStatus: 'rejected', reason: 'timeout' }));
+      } else {
+        setCallState(prev => ({ ...prev, isOpen: false }));
+      }
+    }
+  };
+
+  const endCall = (duration = 0) => {
+    if (socket && callState.channelName) {
+      socket.emit('end_call', {
+        otherId: callState.callerId || 'admin',
+        otherRole: 'admin',
+        channelName: callState.channelName,
+        duration: duration,
+        isOutgoing: callState.isOutgoing
+      });
+      setCallState(prev => ({ ...prev, isOpen: false }));
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -362,6 +494,42 @@ export default function Chat() {
         );
       default: {
         if (!msg.content) return null;
+        if (msg.content === 'MISSED_CALL' || msg.content === 'DECLINED_CALL') {
+          const text = msg.content === 'MISSED_CALL' ? 'Missed Audio Call' : 'Declined Audio Call';
+          return (
+            <div className="flex items-center gap-2.5 py-1">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isUser ? 'bg-black/10 text-black' : 'bg-red-500/10 text-red-500'}`}>
+                <MdPhoneMissed className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-[14px] font-bold ${isUser ? 'text-black' : 'text-red-500'}`}>
+                  {text}
+                </span>
+              </div>
+            </div>
+          );
+        }
+        if (msg.content && msg.content.startsWith('CALL_ENDED_')) {
+          const duration = parseInt(msg.content.split('_')[2] || '0', 10);
+          const m = Math.floor(duration / 60);
+          const s = duration % 60;
+          const durationText = m > 0 ? `${m}m ${s}s` : `${s}s`;
+          return (
+            <div className="flex items-center gap-2.5 py-1">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${isUser ? 'bg-black/10 text-black' : 'bg-blue-500/10 text-blue-400'}`}>
+                <PiPhoneCallBold className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className={`text-[14px] font-bold ${isUser ? 'text-black' : 'text-blue-400'}`}>
+                  Audio Call
+                </span>
+                <span className={`text-[12px] font-medium ${isUser ? 'text-black/70' : 'text-gray-400'}`}>
+                  {durationText}
+                </span>
+              </div>
+            </div>
+          );
+        }
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         const parts = msg.content.split(urlRegex);
         return (
@@ -429,25 +597,34 @@ export default function Chat() {
   return (
     <div className="flex flex-col h-screen w-full bg-[#0c0c0c] text-white font-['Outfit'] selection:bg-[#ccff00] selection:text-black">
       {/* Header */}
-      <header className="bg-[#111] border-b border-white/5 px-6 py-4 flex items-center gap-4 shrink-0 shadow-md z-10">
-        <button 
-          onClick={() => navigate(-1)} 
-          className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+      <header className="bg-[#111] border-b border-white/5 px-6 py-4 flex items-center justify-between shrink-0 shadow-md z-10">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="p-2 -ml-2 hover:bg-white/5 rounded-full transition-colors text-gray-400 hover:text-white"
+          >
+            <FiArrowLeft className="text-xl" />
+          </button>
+          
+          <div className="w-10 h-10 rounded-full bg-[#ccff00]/10 flex items-center justify-center border border-[#ccff00]/20">
+            <MdSupportAgent className="text-[#ccff00] text-xl" />
+          </div>
+          
+          <div className="flex flex-col">
+            <h1 className="font-bold text-[15px] leading-tight text-white">Med Health Invest</h1>
+            <span className="text-[11px] text-[#ccff00] font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] animate-pulse"></span>
+              Support Team
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={initiateCall}
+          className="w-10 h-10 rounded-full bg-white/5 hover:bg-[#ccff00] hover:text-black text-white flex items-center justify-center transition-all duration-300 shadow-md"
+          title="Start Audio Call"
         >
-          <FiArrowLeft className="text-xl" />
+          <PiPhoneCallBold className="text-xl" />
         </button>
-        
-        <div className="w-10 h-10 rounded-full bg-[#ccff00]/10 flex items-center justify-center border border-[#ccff00]/20">
-          <MdSupportAgent className="text-[#ccff00] text-xl" />
-        </div>
-        
-        <div className="flex flex-col">
-          <h1 className="font-bold text-[15px] leading-tight text-white">Med Health Invest</h1>
-          <span className="text-[11px] text-[#ccff00] font-medium flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] animate-pulse"></span>
-            Support Team
-          </span>
-        </div>
       </header>
 
       {/* Messages Area */}
@@ -716,6 +893,25 @@ export default function Chat() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Audio Call Component */}
+      {callState.isOpen && (
+        <AudioCall
+          isOpen={callState.isOpen}
+          isIncoming={callState.isIncoming}
+          isOutgoing={callState.isOutgoing}
+          callerName={callState.callerName}
+          channelName={callState.channelName}
+          accessToken={localStorage.getItem("token")}
+          onAccept={acceptCall}
+          onReject={rejectCall}
+          onEnd={endCall}
+          remoteStatus={callState.remoteStatus}
+          reason={callState.reason}
+          onCallAgain={initiateCall}
+          onClose={() => setCallState(prev => ({ ...prev, isOpen: false, remoteStatus: null }))}
+        />
       )}
 
     </div>

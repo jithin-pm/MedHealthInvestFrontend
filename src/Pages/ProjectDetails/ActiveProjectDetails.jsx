@@ -457,8 +457,11 @@ export default function ActiveProjectDetails() {
                   <div className="flex flex-col gap-6">
                      <div className="flex flex-col gap-2">
                         <span className="text-[10px] font-black text-black/40 uppercase">Project Yield</span>
-                        <div className="flex items-baseline gap-2">
+                        <div className="flex flex-col gap-1 items-start">
                            <span className="text-5xl font-black text-black ">{project.roi}</span>
+                           <span className="text-[10px] font-black text-black/50 uppercase tracking-widest bg-black/5 px-2 py-1 rounded border border-black/5 mt-1">
+                              {(parseFloat(project.roi) * 12).toFixed(1).replace(/\.0$/, '')}% Yearly ROI
+                           </span>
                         </div>
                      </div>
                      <div className="w-full h-px bg-black/10" />

@@ -11,6 +11,8 @@ import Chat from './Pages/Chat/Chat'
 import PaymentSuccess from './Pages/PaymentSuccess/PaymentSuccess'
 import Profile from './Pages/Profile/Profile'
 import ExclusiveProjects from './Pages/ExclusiveProjects/ExclusiveProjects'
+import SpecialProjects from './Pages/SpecialProjects/SpecialProjects'
+import SpecialProjectTransactions from './Pages/SpecialProjectTransactions/SpecialProjectTransactions'
 import TransactionHistory from './Pages/TransactionHistory/TransactionHistory'
 import ProtectedRoute from './Components/ProtectedRoute'
 import ScrollToTop from './Components/ScrollToTop'
@@ -36,7 +38,9 @@ function App() {
         <Route path="/ongoing-projects" element={<ViewAllOngoingProjects />} />
         <Route path="/completed-projects" element={<ViewAllCompletedProjects />} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/exclusive-projects" element={<ExclusiveProjects />} />
+        <Route path="/exclusive-projects" element={<ProtectedRoute><ExclusiveProjects /></ProtectedRoute>} />
+        <Route path="/special-projects" element={<ProtectedRoute><SpecialProjects /></ProtectedRoute>} />
+        <Route path="/special-project/:id/transactions" element={<ProtectedRoute><SpecialProjectTransactions /></ProtectedRoute>} />
         <Route path="/payment-success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
         <Route path="/transaction-history" element={<ProtectedRoute><TransactionHistory /></ProtectedRoute>} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />

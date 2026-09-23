@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { FiCheckCircle, FiShield, FiExternalLink, FiTarget, FiDollarSign } from 'react-icons/fi'
 import { HiRocketLaunch } from 'react-icons/hi2'
+import { Link } from 'react-router-dom'
 
 /* ────────────────────────── Chevron Success Flow ────────────────────────── */
 
@@ -126,6 +127,12 @@ export default function CompletedProjectCard({ project }) {
           <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Timeline :</span>
           <span className="text-zinc-100">{project.duration}</span>
         </div>
+        <div className="flex items-center justify-between">
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Launch Date :</span>
+          <span className="text-zinc-100">
+            {project.createdAt || project.created_at ? new Date(project.createdAt || project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+          </span>
+        </div>
       </div>
 
       {/* Progress Section: Chevron Success Flow Lifecycle */}
@@ -146,12 +153,12 @@ export default function CompletedProjectCard({ project }) {
         <ChevronLifecycle isLoaded={isLoaded} project={project} />
 
         <div className="flex flex-col gap-4">
-          <button className="group/btn relative w-full py-5 bg-white text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl shadow-black/20">
+          <Link to={`/project/${project.id}`} className="group/btn relative w-full py-5 bg-white text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl shadow-black/20 block text-center">
             <span className="relative z-10 flex items-center justify-center gap-2">
               View Audit Report <FiExternalLink className="text-black/40 group-hover/btn:rotate-45 group-hover/btn:text-black transition-all" />
             </span>
             <div className="absolute inset-0 bg-linear-to-r from-transparent via-black/5 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
-          </button>
+          </Link>
         </div>
       </div>
     </div>

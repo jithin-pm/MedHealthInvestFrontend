@@ -237,6 +237,12 @@ export default function ActiveProjectCard({ project }) {
           <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Duration :</span>
           <span className="text-white whitespace-nowrap">{project.duration}</span>
         </div>
+        <div className="flex items-center gap-2 text-[14px]">
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Launch Date :</span>
+          <span className="text-white whitespace-nowrap">
+            {project.createdAt || project.created_at ? new Date(project.createdAt || project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+          </span>
+        </div>
       </div>
 
       {/* Progress Section */}

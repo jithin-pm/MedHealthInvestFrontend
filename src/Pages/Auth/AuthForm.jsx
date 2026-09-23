@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiArrowRight, FiCheck, FiChevronDown, FiSearch, FiEye, FiEyeOff } from 'react-icons/fi';
-import { registerUserApi, loginUserApi } from '../../Services/allApi';
+import { registerUserApi, loginUserApi, verifyLoginOtpApi, forgotPasswordApi, resetPasswordApi } from '../../Services/allApi';
 import { showAlert } from '../../Utils/alert';
 
 const countries = [
@@ -24,7 +24,12 @@ export default function AuthForm() {
   const [step, setStep] = useState('email'); // 'email', 'otp', 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [tempToken, setTempToken] = useState('');
+  const [mobileEnding, setMobileEnding] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [forgotPhone, setForgotPhone] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [confirmResetPassword, setConfirmResetPassword] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -42,12 +47,16 @@ export default function AuthForm() {
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showConfirmResetPassword, setShowConfirmResetPassword] = useState(false);
   
   const [attemptsMessage, setAttemptsMessage] = useState(null);
+  const [passwordErrorMsg, setPasswordErrorMsg] = useState(null);
   const [lockoutEndTime, setLockoutEndTime] = useState(() => {
     return localStorage.getItem('loginLockoutEndTime') || null;
   });
   const [countdownStr, setCountdownStr] = useState('');
+  const [otpTimer, setOtpTimer] = useState(0);
   
   const genderRef = useRef(null);
   const countryRef = useRef(null);
@@ -101,6 +110,16 @@ export default function AuthForm() {
     return () => clearInterval(interval);
   }, [lockoutEndTime]);
 
+  useEffect(() => {
+    let timer;
+    if ((step === 'otp' || step === 'forgot-otp') && otpTimer > 0) {
+      timer = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [step, otpTimer]);
+
   const handleOtpChange = (index, value) => {
     if (isNaN(value)) return;
     const newOtp = [...otp];
@@ -118,6 +137,38 @@ export default function AuthForm() {
     }
   };
 
+  const validatePassword = (password) => {
+    if (password.length < 6) return "Password must be at least 6 characters long.";
+    if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter.";
+    if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter.";
+    if (!/[0-9]/.test(password)) return "Password must contain at least one number.";
+    return null;
+  };
+
+  const renderPasswordRequirements = (password) => {
+    const rules = [
+      { id: 1, text: "At least 6 characters", met: password.length >= 6 },
+      { id: 2, text: "One uppercase letter", met: /[A-Z]/.test(password) },
+      { id: 3, text: "One lowercase letter", met: /[a-z]/.test(password) },
+      { id: 4, text: "One number", met: /[0-9]/.test(password) }
+    ];
+
+    return (
+      <div className="grid grid-cols-2 gap-y-1.5 gap-x-2 mt-3 mb-2 px-1 animate-fade-in-up-short">
+        {rules.map(rule => (
+          <div key={rule.id} className="flex items-center gap-1.5">
+            <div className={`w-3.5 h-3.5 rounded-full flex-shrink-0 flex items-center justify-center transition-colors duration-300 ${rule.met ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-300'}`}>
+              <FiCheck className="text-[9px] stroke-[3]" />
+            </div>
+            <span className={`text-[10px] font-semibold tracking-wide transition-colors duration-300 whitespace-nowrap ${rule.met ? 'text-green-600' : 'text-gray-400'}`}>
+              {rule.text}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const submitEmail = async (e) => {
     e.preventDefault();
     if (!email || !password) {
@@ -128,15 +179,18 @@ export default function AuthForm() {
     try {
       const response = await loginUserApi({ email, password });
       if (response.status === 200) {
-        const { accessToken, user } = response.data;
-        
-        // Save to localStorage (the instance.js service expects this structure)
-        localStorage.setItem('medhealthinvestuser', JSON.stringify({ ...user, accessToken }));
-     
-        // Redirect to home or dashboard
-        window.location.href = '/'; 
+        if (response.data.requiresOtp) {
+           setTempToken(response.data.tempToken);
+           setMobileEnding(response.data.mobileEnding);
+           setStep('otp');
+           setOtpTimer(60);
+        } else {
+           const { accessToken, user } = response.data;
+           localStorage.setItem('medhealthinvestuser', JSON.stringify({ ...user, accessToken }));
+           window.location.href = '/'; 
+        }
       } else {
-        showAlert('Error', response.data?.message || 'Invalid email or password', 'error');
+        setAttemptsMessage(response.data?.message || 'Invalid email or password');
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -154,17 +208,95 @@ export default function AuthForm() {
         setLockoutEndTime(endTime.toString());
         localStorage.setItem('loginLockoutEndTime', endTime.toString());
         setAttemptsMessage(null);
-      } else if (errorMessage.toLowerCase().includes('attempt')) {
-        setAttemptsMessage(errorMessage);
       } else {
-        showAlert('Error', errorMessage, 'error');
+        setAttemptsMessage(errorMessage);
       }
     }
   };
 
-  const submitOtp = (e) => {
+  const submitOtp = async (e) => {
     e.preventDefault();
-    setStep('register');
+    const otpValue = otp.join('');
+    if (otpValue.length !== 6) {
+       showAlert('Error', 'Please enter a valid 6-digit OTP', 'warning');
+       return;
+    }
+
+    try {
+      const response = await verifyLoginOtpApi({ tempToken, otp: otpValue });
+      if (response.status === 200) {
+        const { accessToken, user } = response.data;
+        localStorage.setItem('medhealthinvestuser', JSON.stringify({ ...user, accessToken }));
+        window.location.href = '/';
+      }
+    } catch (error) {
+       console.error("OTP Verification error:", error);
+       showAlert('Error', error.response?.data?.message || 'Invalid OTP', 'error');
+    }
+  };
+
+  const submitForgotPassword = async (e) => {
+    e.preventDefault();
+    if (!forgotPhone) {
+      showAlert('Error', 'Please enter your mobile number.', 'warning');
+      return;
+    }
+    try {
+      const response = await forgotPasswordApi({ mobileNumber: forgotPhone, countryCode: selectedCountry.code });
+      if (response.status === 200) {
+         setTempToken(response.data.tempToken);
+         setMobileEnding(response.data.mobileEnding);
+         setStep('forgot-otp');
+         setOtpTimer(60);
+         setOtp(['', '', '', '', '', '']); 
+      }
+    } catch (error) {
+      console.error("Forgot password error:", error);
+      showAlert('Error', error.response?.data?.message || 'Something went wrong.', 'error');
+    }
+  };
+
+  const submitForgotOtp = async (e) => {
+    e.preventDefault();
+    const otpValue = otp.join('');
+    if (otpValue.length !== 6) {
+       showAlert('Error', 'Please enter a valid 6-digit OTP', 'warning');
+       return;
+    }
+    setStep('forgot-reset');
+  };
+
+  const submitResetPassword = async (e) => {
+    e.preventDefault();
+    if (resetPassword !== confirmResetPassword) {
+      setPasswordErrorMsg("Passwords do not match.");
+      return;
+    }
+    const passwordError = validatePassword(resetPassword);
+    if (passwordError) {
+      setPasswordErrorMsg(passwordError);
+      return;
+    }
+    const otpValue = otp.join('');
+    try {
+      const response = await resetPasswordApi({ tempToken, otp: otpValue, newPassword: resetPassword });
+      if (response.status === 200) {
+        showAlert('Success', 'Password reset successfully. You can now login.', 'success');
+        setStep('email');
+        setPassword('');
+        setResetPassword('');
+        setConfirmResetPassword('');
+        setOtp(['', '', '', '', '', '']);
+      }
+    } catch (error) {
+      console.error("Reset password error:", error);
+      showAlert('Error', error.response?.data?.message || 'Invalid OTP or expired session.', 'error');
+      if (error.response?.data?.message?.toLowerCase().includes('expired')) {
+         setStep('forgot-email'); 
+      } else {
+         setStep('forgot-otp'); 
+      }
+    }
   };
 
 
@@ -172,10 +304,14 @@ export default function AuthForm() {
   const submitRegistration = async (e) => {
     e.preventDefault();
     if (formData.password !== formData.confirmPassword) {
-      showAlert('Error', "Passwords do not match.", 'error');
+      setPasswordErrorMsg("Passwords do not match.");
       return;
     }
-
+    const passwordError = validatePassword(formData.password);
+    if (passwordError) {
+      setPasswordErrorMsg(passwordError);
+      return;
+    }
 
 
     const payload = {
@@ -214,7 +350,7 @@ export default function AuthForm() {
         </h2>
         <p className="text-gray-500 text-[13px] leading-relaxed font-medium tracking-tight opacity-70 max-w-[320px]">
           {step === 'email' && 'Sign in to monitor your yields and manage your institutional-grade projects.'}
-          {step === 'otp' && `A secure authorization code has been dispatched to your device ending in **1234.`}
+          {step === 'otp' && `A secure authorization code has been dispatched to your device ending in **${mobileEnding}.`}
           {step === 'register' && 'Complete your registration to unlock a world of exclusive, fixed-income opportunities.'}
         </p>
       </div>
@@ -280,7 +416,7 @@ export default function AuthForm() {
             </div>
 
             <div className="flex justify-end mt-2">
-              <button type="button" className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+              <button type="button" onClick={() => setStep('forgot-email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
                 Forgot password?
               </button>
             </div>
@@ -322,6 +458,22 @@ export default function AuthForm() {
                 />
               ))}
             </div>
+
+            {otpTimer > 0 ? (
+              <div className="pt-2 text-center mt-4">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">
+                  OTP expires in <span className="font-black text-xs text-black">
+                    {Math.floor(otpTimer / 60).toString().padStart(2, '0')}:{(otpTimer % 60).toString().padStart(2, '0')}
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <div className="pt-2 text-center mt-4">
+                <button type="button" onClick={submitEmail} className="text-[10px] text-black hover:text-gray-600 transition-colors uppercase tracking-widest font-black underline">
+                  Resend OTP
+                </button>
+              </div>
+            )}
             
             <button
               type="submit"
@@ -529,6 +681,7 @@ export default function AuthForm() {
                 {showRegPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
               </button>
             </div>
+            {renderPasswordRequirements(formData.password)}
 
             <div className="relative group">
               <input
@@ -536,7 +689,8 @@ export default function AuthForm() {
                 value={formData.confirmPassword}
                 onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
                 id="confirmPassword"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+                disabled={!!validatePassword(formData.password)}
+                className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10 ${!!validatePassword(formData.password) ? 'opacity-50 cursor-not-allowed' : ''}`}
                 placeholder=" "
                 required
               />
@@ -557,7 +711,8 @@ export default function AuthForm() {
 
             <button
               type="submit"
-              className="w-full py-4 mt-4 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+              disabled={!!validatePassword(formData.password) || formData.password !== formData.confirmPassword}
+              className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${(!validatePassword(formData.password) && formData.password === formData.confirmPassword) ? 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
             >
               <span>Create Account</span>
               <FiArrowRight className="text-base" />
@@ -570,6 +725,248 @@ export default function AuthForm() {
                   Login Here
                 </span>
                </button>
+            </div>
+          </form>
+        )}
+
+        {/* Forgot Password - Phone Step */}
+        {step === 'forgot-email' && (
+          <form onSubmit={submitForgotPassword} className="space-y-4 animate-fade-in-up">
+            <h3 className="text-xl font-bold mb-6 text-black tracking-wide">Reset Password</h3>
+            <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Enter your registered mobile number to receive an authorization code.</p>
+            
+            <div className="relative group" ref={countryRef}>
+              <div className="flex items-end gap-3 transition-colors group-focus-within:border-black">
+                {/* Country Selector */}
+                <div className="relative border-b border-gray-300 min-w-[85px]">
+                  <button
+                    type="button"
+                    onClick={() => setIsCountryOpen(!isCountryOpen)}
+                    className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
+                  >
+                    <div className="flex items-center gap-2">
+                      <img 
+                        src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`} 
+                        alt="" 
+                        className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm mb-0.5"
+                      />
+                      <span className="text-[14px] font-medium text-black">{selectedCountry.code}</span>
+                    </div>
+                    <FiChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isCountryOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Country Dropdown */}
+                  {isCountryOpen && (
+                    <div className="absolute top-full left-0 w-[260px] mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] z-[60] animate-fade-in-up-short overflow-hidden">
+                      <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
+                        <FiSearch className="text-gray-400 text-xs" />
+                        <input 
+                          type="text"
+                          placeholder="Search country..."
+                          value={countrySearch}
+                          onChange={(e) => setCountrySearch(e.target.value)}
+                          className="w-full text-[12px] text-black bg-transparent border-0 focus:ring-0 outline-none placeholder:text-gray-400"
+                          autoFocus
+                        />
+                      </div>
+                      <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                        {countries
+                          .filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
+                          .map((c) => (
+                          <button
+                            key={c.name}
+                            type="button"
+                            onClick={() => {
+                              setSelectedCountry(c);
+                              setIsCountryOpen(false);
+                              setCountrySearch('');
+                            }}
+                            className="w-full text-left px-4 py-3 text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
+                          >
+                            <div className="flex items-center gap-3">
+                              <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt="" className="w-5 h-3.5 object-cover rounded-sm shadow-sm" />
+                              <span>{c.name}</span>
+                            </div>
+                            <span className="text-gray-400 font-mono text-[11px] group-hover/opt:text-gray-600">{c.code}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Phone Input */}
+                <div className="relative flex-1">
+                  <input
+                    type="tel"
+                    value={forgotPhone}
+                    onChange={(e) => setForgotPhone(e.target.value.replace(/\D/g, ''))}
+                    id="forgot-phone"
+                    className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                    placeholder=" "
+                    required
+                  />
+                  <label 
+                    htmlFor="forgot-phone" 
+                    className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                  >
+                    Mobile Number
+                  </label>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              type="submit"
+              className="w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+            >
+              <span>Send OTP</span>
+              <FiArrowRight className="text-base" />
+            </button>
+            
+            <div className="pt-2">
+               <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                ← Back to Login
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Forgot Password - OTP Step */}
+        {step === 'forgot-otp' && (
+          <form onSubmit={submitForgotOtp} className="space-y-10 animate-fade-in-up">
+            <h3 className="text-xl font-bold mb-2 text-black tracking-wide">Verify.</h3>
+            <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
+              A secure authorization code has been dispatched to your device ending in *{mobileEnding}.
+            </p>
+
+            <div className="flex justify-between gap-3 mt-4">
+              {otp.map((digit, idx) => (
+                <input
+                  key={idx}
+                  ref={(el) => (otpRefs.current[idx] = el)}
+                  type="text"
+                  value={digit}
+                  onChange={(e) => handleOtpChange(idx, e.target.value)}
+                  onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                  className="w-full pb-2 text-center text-3xl text-black font-light bg-transparent border-0 border-b border-gray-300 focus:outline-none focus:border-black transition-colors selection:bg-gray-200"
+                  required
+                />
+              ))}
+            </div>
+
+            {otpTimer > 0 ? (
+              <div className="pt-2 text-center mt-4">
+                <span className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">
+                  OTP expires in <span className="font-black text-xs text-black">
+                    {Math.floor(otpTimer / 60).toString().padStart(2, '0')}:{(otpTimer % 60).toString().padStart(2, '0')}
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <div className="pt-2 text-center mt-4">
+                <button type="button" onClick={submitForgotPassword} className="text-[10px] text-black hover:text-gray-600 transition-colors uppercase tracking-widest font-black underline">
+                  Resend OTP
+                </button>
+              </div>
+            )}
+            
+            <button
+              type="submit"
+              className="w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+            >
+              <span>Continue</span>
+              <FiArrowRight className="text-base" />
+            </button>
+            
+            <div className="pt-2">
+               <button type="button" onClick={() => setStep('forgot-email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                ← Back
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Forgot Password - Reset Password Step */}
+        {step === 'forgot-reset' && (
+          <form onSubmit={submitResetPassword} className="space-y-6 animate-fade-in-up">
+            <h3 className="text-xl font-bold mb-6 text-black tracking-wide">New Password</h3>
+            <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Please enter your new secure password.</p>
+            
+            <div className="relative group">
+              <input
+                type={showResetPassword ? "text" : "password"}
+                value={resetPassword}
+                onChange={(e) => setResetPassword(e.target.value)}
+                id="reset-password"
+                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+                placeholder=" "
+                required
+              />
+              <label 
+                htmlFor="reset-password" 
+                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+              >
+                New Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowResetPassword(!showResetPassword)}
+                className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+              >
+                {showResetPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+              </button>
+            </div>
+            {renderPasswordRequirements(resetPassword)}
+
+            <div className="relative group">
+              <input
+                type={showConfirmResetPassword ? "text" : "password"}
+                value={confirmResetPassword}
+                onChange={(e) => setConfirmResetPassword(e.target.value)}
+                id="confirm-reset-password"
+                disabled={!!validatePassword(resetPassword)}
+                className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10 ${!!validatePassword(resetPassword) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                placeholder=" "
+                required
+              />
+              <label 
+                htmlFor="confirm-reset-password" 
+                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+              >
+                Confirm Password
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowConfirmResetPassword(!showConfirmResetPassword)}
+                className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+              >
+                {showConfirmResetPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+              </button>
+            </div>
+            
+            {passwordErrorMsg && (
+              <div className="text-red-500 text-[11px] font-medium animate-pulse mt-2">{passwordErrorMsg}</div>
+            )}
+            
+            <button
+              type="submit"
+              disabled={!!validatePassword(resetPassword) || resetPassword !== confirmResetPassword}
+              className={`w-full py-4 mt-8 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${(!validatePassword(resetPassword) && resetPassword === confirmResetPassword) ? 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+            >
+              <span>Reset Password</span>
+              <FiCheck className="text-base" />
+            </button>
+            
+            <div className="pt-2">
+               <button type="button" onClick={() => {
+                 setStep('forgot-email');
+                 setOtp(['', '', '', '', '', '']);
+                 setResetPassword('');
+                 setConfirmResetPassword('');
+               }} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                ← Cancel
+              </button>
             </div>
           </form>
         )}
