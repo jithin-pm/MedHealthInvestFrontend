@@ -121,7 +121,7 @@ export default function CompletedProjectCard({ project }) {
       <div className="flex flex-col gap-3 py-4 border-y border-white/5 text-[14px] font-bold text-white">
         <div className="flex items-center justify-between">
           <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Capital Raised :</span>
-          <span className="text-white font-black tracking-tight">₹{Number(project.collectedAmount || 0).toLocaleString('en-IN')}</span>
+          <span className="text-white font-black tracking-tight"><span className="mr-0.5">₹</span>{Number(project.collectedAmount || 0).toLocaleString('en-IN')}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Timeline :</span>

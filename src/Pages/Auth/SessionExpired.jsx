@@ -11,11 +11,11 @@ const SessionExpired = () => {
     <div className="min-h-screen bg-black flex items-center justify-center p-6 font-['Poppins']">
       
       {/* ── Security Pass Style Card (Light Version) ── */}
-      <div className="max-w-[380px] w-full bg-white rounded-[40px] relative overflow-hidden shadow-[0_50px_100px_rgba(204,255,0,0.15)] animate-in fade-in zoom-in duration-500">
+      <div className="max-w-[380px] w-full bg-white rounded-[40px] relative overflow-hidden  animate-in fade-in zoom-in duration-500">
         
         {/* Top Section */}
         <div className="p-10 pb-8 flex flex-col items-center gap-6">
-           <div className="w-16 h-16 rounded-2xl bg-black flex items-center justify-center shadow-xl">
+           <div className="w-16 h-16 rounded-2xl bg-black flex items-center justify-center ">
               {isInactivity ? (
                 <FiClock className="text-3xl text-[#ccff00]" />
               ) : (

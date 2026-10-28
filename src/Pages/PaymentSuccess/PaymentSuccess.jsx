@@ -127,11 +127,11 @@ const PaymentSuccess = () => {
                       <div className="space-y-4 pt-4">
                          <div className="flex justify-between items-center text-sm">
                             <span className="text-zinc-400 font-bold uppercase tracking-widest text-[10px]">Principal Amount</span>
-                            <span className="text-black font-black">₹{Number(amount || 0).toLocaleString('en-IN')}</span>
+                            <span className="text-black font-black"><span className="mr-0.5">₹</span>{Number(amount || 0).toLocaleString('en-IN')}</span>
                          </div>
                          <div className="flex justify-between items-center pt-4 border-t border-zinc-200">
                             <span className="text-zinc-500 font-black uppercase tracking-[0.2em] text-[11px]">Total Settled</span>
-                            <span className="text-3xl font-black text-black">₹{Number(amount || 0).toLocaleString('en-IN')}</span>
+                            <span className="text-3xl font-black text-black"><span className="mr-1">₹</span>{Number(amount || 0).toLocaleString('en-IN')}</span>
                          </div>
                       </div>
                    </div>

@@ -46,7 +46,7 @@ export default function Auth() {
         </div>
 
         {/* The Form (Modal appearance on mobile) */}
-        <div className="w-full max-w-md relative z-10 flex flex-col justify-center items-center">
+        <div className="w-full max-w-xl lg:max-w-2xl relative z-10 flex flex-col justify-center items-center">
           <AuthForm />
         </div>
       </div>

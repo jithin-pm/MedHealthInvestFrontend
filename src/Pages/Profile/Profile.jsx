@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Navbar from '../Home/HomeComponents/Navbar'
 import Footer from '../../Components/Footer'
-import { saveEnquiryApi, getAllProjectsApi, getUserInvestmentsApi, verifyBankApi, verifyPanApi, getVerificationStatusApi , getUserSpecialProjectsApi } from '../../Services/allApi'
+import { updateProfileApi, saveEnquiryApi, getAllProjectsApi, getUserInvestmentsApi, verifyBankApi, verifyPanApi, getVerificationStatusApi , getUserSpecialProjectsApi } from '../../Services/allApi'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Swal from 'sweetalert2'
 import { BASE_URL } from '../../Services/baseUrl'
@@ -51,9 +51,26 @@ const COUNTRIES = [
   { name: 'Bahrain',              code: '+973', iso: 'bh' },
 ];
 
+const formatDateDDMMYYYY = (dateVal) => {
+  const d = dateVal ? new Date(dateVal) : new Date();
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    return String(now.getDate()).padStart(2, '0') + String(now.getMonth() + 1).padStart(2, '0') + now.getFullYear();
+  }
+  return String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear();
+};
+
 export default function Profile() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medhealthinvestuser');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  })
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalType, setModalType] = useState('Exclusive') // 'Exclusive' | 'Special'
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
   const [phone, setPhone] = useState('')
@@ -75,8 +92,130 @@ export default function Profile() {
 
   const [showAccountNumber, setShowAccountNumber] = useState(false)
   const [showConfirmAccountNumber, setShowConfirmConfirmAccountNumber] = useState(false)
-  const [isPanVerified, setIsPanVerified] = useState(false)
-  const [isBankVerified, setIsBankVerified] = useState(false)
+  const isVerifiedVal = (v) => v === true || v === 1 || v === '1'
+
+  const [isPanVerified, setIsPanVerified] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medhealthinvestuser')
+      if (saved) {
+        const u = JSON.parse(saved)
+        return isVerifiedVal(u.isPanVerified)
+      }
+    } catch (e) {}
+    return false
+  })
+  const [isBankVerified, setIsBankVerified] = useState(() => {
+    try {
+      const saved = localStorage.getItem('medhealthinvestuser')
+      if (saved) {
+        const u = JSON.parse(saved)
+        return isVerifiedVal(u.isBankVerified)
+      }
+    } catch (e) {}
+    return false
+  })
+
+  const effectivePanVerified = Boolean(isPanVerified || isVerifiedVal(user?.isPanVerified))
+  const effectiveBankVerified = Boolean(isBankVerified || isVerifiedVal(user?.isBankVerified))
+  const isFullyVerified = effectivePanVerified && effectiveBankVerified
+    // Edit Profile State
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [editProfileData, setEditProfileData] = useState({
+    fullName: '',
+    countryCode: '+91',
+    mobileNumber: '',
+    gender: 'Male'
+  });
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  const handleOpenEditProfileModal = () => {
+    setEditProfileData({
+      fullName: user?.fullName || user?.fullname || '',
+      countryCode: user?.countryCode || '+91',
+      mobileNumber: user?.mobileNumber ? String(user.mobileNumber) : '',
+      gender: user?.gender || 'Male'
+    });
+    setIsEditProfileModalOpen(true);
+  };
+
+  const handleSaveEditProfile = async (e) => {
+    e.preventDefault();
+    if (!editProfileData.fullName.trim()) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Full Name Required',
+        text: 'Please enter your full name.',
+        background: '#121212',
+        color: '#fff',
+        customClass: {
+          popup: 'border border-white/10 rounded-2xl'
+        }
+      });
+      return;
+    }
+
+    setIsUpdatingProfile(true);
+    try {
+      const res = await updateProfileApi(editProfileData);
+      if (res.status === 200 && (res.data?.success || res.data?.user)) {
+        const updatedUserData = res.data.user || {
+          ...user,
+          ...editProfileData
+        };
+
+        const mergedUser = {
+          ...user,
+          ...updatedUserData
+        };
+
+        setUser(mergedUser);
+        localStorage.setItem('medhealthinvestuser', JSON.stringify(mergedUser));
+        window.dispatchEvent(new Event('user_update'));
+
+        Swal.fire({
+          toast: true,
+          position: 'top-end',
+          icon: 'success',
+          title: 'Profile updated successfully!',
+          showConfirmButton: false,
+          timer: 2500,
+          background: '#121212',
+          color: '#fff',
+          customClass: {
+            popup: 'border border-[#ccff00]/20 rounded-xl'
+          }
+        });
+
+        setIsEditProfileModalOpen(false);
+      } else {
+        Swal.fire({
+          icon: 'error',
+          title: 'Update Failed',
+          text: res.data?.message || 'Could not update your profile.',
+          background: '#121212',
+          color: '#fff',
+          customClass: {
+            popup: 'border border-white/10 rounded-2xl'
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error updating profile:', err);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'Failed to update profile.',
+        background: '#121212',
+        color: '#fff',
+        customClass: {
+          popup: 'border border-white/10 rounded-2xl'
+        }
+      });
+    } finally {
+      setIsUpdatingProfile(false);
+    }
+  };
+
   const [panDetails, setPanDetails] = useState(null)
   const [bankDetails, setBankDetails] = useState(null)
   const [showVerifiedDetails, setShowVerifiedDetails] = useState(false)
@@ -84,9 +223,12 @@ export default function Profile() {
 
   useEffect(() => {
     if (location.state?.openKyc) {
-      setIsBankModalOpen(true)
+      window.history.replaceState({}, document.title);
+      if (!isFullyVerified) {
+        setIsBankModalOpen(true);
+      }
     }
-  }, [location.state])
+  }, [location.state, isFullyVerified])
 
   const [transactions, setTransactions] = useState([])
   const [totalCapital, setTotalCapital] = useState(0)
@@ -115,8 +257,10 @@ export default function Profile() {
             const statusRes = await getVerificationStatusApi(parsedUser.id)
             console.log("[Profile Init] API Response status:", statusRes.status, "data:", statusRes.data)
             if (statusRes.status === 200) {
-              setIsPanVerified(statusRes.data.isPanVerified === true)
-              setIsBankVerified(statusRes.data.isBankVerified === true)
+              const panOk = isVerifiedVal(statusRes.data.isPanVerified)
+              const bankOk = isVerifiedVal(statusRes.data.isBankVerified)
+              setIsPanVerified(panOk)
+              setIsBankVerified(bankOk)
               
               console.log("[Profile Init] Setting panDetails state to:", statusRes.data.panDetails)
               console.log("[Profile Init] Setting bankDetails state to:", statusRes.data.bankDetails)
@@ -127,13 +271,14 @@ export default function Profile() {
               // Also sync latest user information to React state and localStorage
               const updatedUser = {
                 ...parsedUser,
+                customUserId: statusRes.data.customUserId || parsedUser.customUserId,
                 fullName: statusRes.data.fullName || parsedUser.fullName,
                 bankName: statusRes.data.bankName || parsedUser.bankName,
                 accountNumber: statusRes.data.accountNumber || parsedUser.accountNumber,
                 ifscCode: statusRes.data.ifscCode || parsedUser.ifscCode,
                 accountHolderName: statusRes.data.accountHolderName || parsedUser.accountHolderName,
-                isPanVerified: statusRes.data.isPanVerified ? 1 : 0,
-                isBankVerified: statusRes.data.isBankVerified ? 1 : 0
+                isPanVerified: panOk ? 1 : 0,
+                isBankVerified: bankOk ? 1 : 0
               }
               console.log("[Profile Init] Updating local user state and localStorage to:", updatedUser)
               setUser(updatedUser)
@@ -142,6 +287,10 @@ export default function Profile() {
             }
           } catch (err) {
             console.error('[Profile Init] Could not fetch verification status:', err)
+            if (parsedUser) {
+              setIsPanVerified(isVerifiedVal(parsedUser.isPanVerified))
+              setIsBankVerified(isVerifiedVal(parsedUser.isBankVerified))
+            }
           }
         } else {
           console.warn("[Profile Init] No user.id found in parsedUser:", parsedUser)
@@ -193,13 +342,32 @@ export default function Profile() {
               const baseAmount = Number(inv.amount || 0);
               const baseDate = inv.created_at || inv.createdAt || new Date();
 
+              const isExclusive = inv.project?.projectType === 'Exclusive' || inv.project?.projectCategory === 'Exclusive';
+              const invDateStr = formatDateDDMMYYYY(baseDate);
+              // Standard projects display the Razorpay paymentId (e.g. pay_xxxxxxxxxx)
+              // Exclusive projects display EXP-DDMMYYYY-XX
+              const invRef = isExclusive 
+                ? `EXP-${invDateStr}-${String(inv.id).padStart(2, '0')}` 
+                : (inv.paymentId || `INV-${String(inv.id).padStart(6, '0')}`);
+
+              const settleDate = inv.updated_at || inv.updatedAt || baseDate;
+              const settleDateStr = formatDateDDMMYYYY(settleDate);
+              let payRef;
+              if (isRefund) {
+                payRef = `REF-${settleDateStr}-${String(inv.id).padStart(2, '0')}`;
+              } else if (isExclusive) {
+                payRef = `EXP-PAY-${settleDateStr}-${String(inv.id).padStart(2, '0')}`;
+              } else {
+                payRef = `STD-${settleDateStr}-${String(inv.id).padStart(2, '0')}`;
+              }
+
               // 1. Capital Debit Entry
               ledger.push({
                 ...inv,
                 ledgerType: 'DEBIT',
                 ledgerDate: baseDate,
                 ledgerAmount: baseAmount,
-                ledgerRef: `INV-${String(inv.id).padStart(6, '0')}`
+                ledgerRef: invRef
               });
 
             // 2. Settled Credit Entry (if PAID)
@@ -215,9 +383,9 @@ export default function Profile() {
                 ...inv,
                 ledgerType: 'CREDIT',
                 isRefund: isRefund,
-                ledgerDate: inv.updated_at || inv.updatedAt || baseDate,
+                ledgerDate: settleDate,
                 ledgerAmount: totalMaturity,
-                ledgerRef: `PAY-${String(inv.id).padStart(6, '0')}`
+                ledgerRef: payRef
               });
             }
             });
@@ -269,15 +437,21 @@ export default function Profile() {
   }, [])
 
   const handleOpenModal = () => {
+    setModalType('Exclusive')
+    setIsModalOpen(true)
+  }
+
+  const handleOpenSpecialModal = () => {
+    setModalType('Special')
     setIsModalOpen(true)
   }
 
   const handleOpenBankModal = () => {
     // If both already verified, just confirm
-    if (isPanVerified && isBankVerified) {
+    if (isFullyVerified) {
       Swal.fire({
         icon: 'success',
-        title: 'Fully Verified âœ“',
+        title: 'Fully Verified ✓',
         text: 'Your PAN and bank account are already verified.',
         background: '#18181b', color: '#fff', confirmButtonColor: '#ccff00'
       })
@@ -290,7 +464,7 @@ export default function Profile() {
       confirmPan: ''
     })
     // If PAN already verified, jump straight to bank tab
-    setVerificationTab(isPanVerified ? 'bank' : 'pan')
+    setVerificationTab(effectivePanVerified ? 'bank' : 'pan')
     const userCountry = COUNTRIES.find(c => c.code === user?.countryCode) || COUNTRIES[0]
     setSelectedBankCountry(userCountry)
   }
@@ -322,14 +496,15 @@ export default function Profile() {
 
     setIsSubmitting(true)
     try {
+      const isSpecial = modalType === 'Special'
       const data = {
         fullname: user?.fullName || user?.fullname || '',
         email: user?.email || '',
         countryCode: selectedCountry.code,
         phone: phone,
-        subject: 'Request for Exclusive Project Access',
+        subject: isSpecial ? 'Request for Special Project Allocation' : 'Request for Exclusive Project Access',
         message: message,
-        enquiryType: 'Exclusive'
+        enquiryType: isSpecial ? 'Special' : 'Exclusive'
       }
       const res = await saveEnquiryApi(data)
       if (res.status === 200 || res.status === 201) {
@@ -603,7 +778,7 @@ export default function Profile() {
             {/* Simple Circle Avatar */}
             <div className="w-20 h-20 bg-black border-2 border-white/20 rounded-full flex items-center justify-center text-white shrink-0 shadow-lg relative">
               <FiUser size={36} />
-              {isPanVerified && isBankVerified && (
+              {isFullyVerified && (
                 <BsFillPatchCheckFill className="absolute -top-1 -right-1 text-[#ccff00] bg-black rounded-full animate-in zoom-in-50 duration-300" size={24} />
               )}
             </div>
@@ -617,6 +792,11 @@ export default function Profile() {
                 <span className="px-2 py-0.5 rounded-md bg-[#ccff00]/10 border border-[#ccff00]/20 text-[#ccff00] text-[9px] font-black uppercase tracking-widest">
                   Active
                 </span>
+                {(user?.customUserId || user?.id) && (
+                  <span className="px-2.5 py-0.5 rounded-md bg-white/5 border border-white/10 text-[#ccff00] font-mono text-[10px] font-bold tracking-wider">
+                    {user?.customUserId || `MHI2026${String(user.id).padStart(2, '0')}`}
+                  </span>
+                )}
               </div>
               <p className="text-zinc-500 text-sm font-medium mt-0.5">{user?.email}</p>
               <div className="flex items-center gap-4 mt-2">
@@ -630,17 +810,17 @@ export default function Profile() {
           <div className="w-full md:w-auto shrink-0 flex justify-center md:justify-end">
             <button 
               onClick={
-                isPanVerified && isBankVerified
+                isFullyVerified
                   ? () => setShowVerifiedDetails(!showVerifiedDetails)
                   : handleOpenBankModal
               }
               className={`w-full md:w-[240px] py-4 border rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-3 transition-all duration-300 active:scale-[0.98] shadow-2xl group/btn ${
-                isPanVerified && isBankVerified
+                isFullyVerified
                   ? 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500 hover:text-black hover:border-green-500'
                   : 'bg-white text-black border-white/10 hover:bg-[#ccff00] hover:text-black hover:border-[#ccff00]'
               }`}
             >
-              {isPanVerified && isBankVerified ? (
+              {isFullyVerified ? (
                 showVerifiedDetails ? (
                   <FiEyeOff size={16} className="text-green-400 group-hover/btn:text-black transition-colors" />
                 ) : (
@@ -649,11 +829,11 @@ export default function Profile() {
               ) : (
                 <FiShield size={16} className="text-[#ccff00] group-hover/btn:text-black transition-colors" />
               )}
-              {isPanVerified && isBankVerified
+              {isFullyVerified
                 ? showVerifiedDetails
                   ? 'Hide Details'
                   : 'Show Details'
-                : isPanVerified
+                : effectivePanVerified
                   ? 'Verify Bank Account'
                   : 'Verify Profile'
               }
@@ -662,7 +842,7 @@ export default function Profile() {
         </div>
 
         {/* Collapsible Verified Details Section */}
-        {isPanVerified && isBankVerified && showVerifiedDetails && (
+        {isFullyVerified && showVerifiedDetails && (
           <div className="bg-zinc-900/40 border border-white/10 rounded-3xl p-6 md:p-8 mb-12 animate-in slide-in-from-top-4 duration-500 overflow-hidden shadow-2xl backdrop-blur-md">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {/* PAN CARD DETAILS */}
@@ -755,7 +935,25 @@ export default function Profile() {
               </div>
 
               <button
-                onClick={!(isPanVerified && isBankVerified) ? handleOpenBankModal : hasExclusive ? () => navigate('/exclusive-projects') : handleOpenModal}
+                onClick={() => {
+                  let fullyVerified = isFullyVerified;
+                  if (!fullyVerified) {
+                    try {
+                      const saved = JSON.parse(localStorage.getItem('medhealthinvestuser') || '{}');
+                      if (isVerifiedVal(saved.isPanVerified) && isVerifiedVal(saved.isBankVerified)) {
+                        fullyVerified = true;
+                      }
+                    } catch (e) {}
+                  }
+
+                  if (!fullyVerified) {
+                    handleOpenBankModal();
+                  } else if (hasExclusive) {
+                    navigate('/exclusive-projects');
+                  } else {
+                    handleOpenModal();
+                  }
+                }}
                 className="w-full py-6 bg-black text-white rounded-2xl text-[14px] font-bold uppercase transition-all duration-300 hover:bg-[#ccff00] hover:text-black active:scale-[0.98] shadow-xl flex items-center justify-center gap-2"
               >
                 {hasExclusive ? 'View Exclusive Projects' : 'Join Exclusive Projects'} <LuCrown />
@@ -784,10 +982,22 @@ export default function Profile() {
 
                <button
                    onClick={() => {
+                       let fullyVerified = isFullyVerified;
+                       if (!fullyVerified) {
+                         try {
+                           const saved = JSON.parse(localStorage.getItem('medhealthinvestuser') || '{}');
+                           if (isVerifiedVal(saved.isPanVerified) && isVerifiedVal(saved.isBankVerified)) {
+                             fullyVerified = true;
+                           }
+                         } catch (e) {}
+                       }
+
                        if (hasSpecialProjects) {
                            navigate('/special-projects');
+                       } else if (!fullyVerified) {
+                           handleOpenBankModal();
                        } else {
-                           !(isPanVerified && isBankVerified) ? handleOpenBankModal() : handleOpenSpecialModal();
+                           handleOpenSpecialModal();
                        }
                    }}
                    className="w-full py-6 bg-[#ccff00] text-black rounded-2xl text-[14px] font-bold uppercase transition-all duration-300 hover:bg-white shadow-xl flex items-center justify-center gap-2"
@@ -834,7 +1044,7 @@ export default function Profile() {
                                     </div>
                                     
                                     <div className="flex flex-col gap-1">
-                                       <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{inv.project?.projectType === 'Exclusive' ? 'Exclusive Asset' : 'Standard Asset'}</span>
+                                       <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{inv.project?.projectType === 'Exclusive' ? 'Exclusive Project' : 'Standard Project'}</span>
                                        <h3 className="text-lg font-bold text-white tracking-tight">{inv.project?.projectName}</h3>
                                        <div className="flex items-center gap-3">
                                           <span className="text-[11px] font-medium text-zinc-500">{new Date(inv.ledgerDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
@@ -849,7 +1059,7 @@ export default function Profile() {
                                  <div className="flex items-center justify-between lg:justify-end gap-10">
                                     <div className="text-left lg:text-right">
                                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest block mb-1">Transaction Value</span>
-                                       <span className="text-2xl font-semibold text-white tabular-nums ">₹{Number(inv.ledgerAmount).toLocaleString('en-IN')}</span>
+                                       <span className="text-2xl font-semibold text-white tabular-nums "><span className="mr-0.5">₹</span>{Number(inv.ledgerAmount).toLocaleString('en-IN')}</span>
                                     </div>
 
                                     <div className="flex gap-2">
@@ -969,16 +1179,22 @@ export default function Profile() {
          </div>
       )}
 
-      {/* ðŸ”® Exclusive Enquiry Modal */}
+      {/* 👑 Exclusive & Special Enquiry Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
            <div className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
               
               {/* Modal Header */}
               <div className="flex items-center justify-between px-8 py-6 border-b border-white/5 bg-zinc-800/50">
                  <div className="flex items-center gap-3">
-                    <LuCrown className="text-[#ccff00] text-xl" />
-                    <h2 className="text-lg font-bold text-white tracking-tight">Exclusive Project Request</h2>
+                    {modalType === 'Special' ? (
+                      <HiOutlineStar className="text-[#ccff00] text-xl" />
+                    ) : (
+                      <LuCrown className="text-[#ccff00] text-xl" />
+                    )}
+                    <h2 className="text-lg font-bold text-white tracking-tight">
+                      {modalType === 'Special' ? 'Special Project Request' : 'Exclusive Project Request'}
+                    </h2>
                  </div>
                  <button
                   onClick={() => setIsModalOpen(false)}
@@ -996,7 +1212,7 @@ export default function Profile() {
                     <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Subject</label>
                     <input
                       type="text"
-                      value="Request for Exclusive Project Access"
+                      value={modalType === 'Special' ? 'Request for Special Project Allocation' : 'Request for Exclusive Project Access'}
                       readOnly
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-3.5 text-sm font-bold text-[#ccff00] outline-none cursor-not-allowed"
                     />
@@ -1028,7 +1244,7 @@ export default function Profile() {
                     <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Your Message</label>
                     <textarea
                       rows="5"
-                      placeholder="Describe your investment goals or capital deployment requirements..."
+                      placeholder={modalType === 'Special' ? 'Describe your capital deployment requirements for special projects...' : 'Describe your investment goals or capital deployment requirements...'}
                       className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-sm font-medium text-white outline-none focus:border-[#ccff00]/50 transition-all placeholder:text-zinc-700 resize-none"
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
@@ -1052,6 +1268,21 @@ export default function Profile() {
                 <p className="text-[12px] text-zinc-600 text-center font-bold ">
                   Private concierge response within 24 business hours.
                 </p>
+
+                {modalType === 'Special' && (
+                  <div className="pt-2 text-center border-t border-white/5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        navigate('/special-projects');
+                      }}
+                      className="text-xs text-zinc-400 hover:text-[#ccff00] transition-colors font-bold uppercase tracking-wider inline-flex items-center gap-1.5"
+                    >
+                      Browse Special Projects Portal <FiArrowRight />
+                    </button>
+                  </div>
+                )}
               </form>
            </div>
         </div>
@@ -1375,12 +1606,12 @@ export default function Profile() {
 
                        <div className="mt-auto pt-7 pb-5">
                          <button
-                           type={isPanVerified ? 'button' : 'submit'}
-                           onClick={isPanVerified ? () => setVerificationTab('bank') : undefined}
+                           type={effectivePanVerified ? 'button' : 'submit'}
+                           onClick={effectivePanVerified ? () => setVerificationTab('bank') : undefined}
                            disabled={isVerifyingBank}
                            className="w-full py-5 bg-black text-white text-[11px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-10 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em] disabled:opacity-50 disabled:cursor-not-allowed group shadow-2xl"
                          >
-                           <span>{isVerifyingBank ? 'Authenticating...' : isPanVerified ? 'Switch to Bank Verification' : 'Submit Verification'}</span>
+                           <span>{isVerifyingBank ? 'Authenticating...' : effectivePanVerified ? 'Switch to Bank Verification' : 'Submit Verification'}</span>
                            {isVerifyingBank ? (
                              <FiLoader className="animate-spin text-lg" />
                            ) : (
@@ -1408,7 +1639,7 @@ export default function Profile() {
                            >
                              1
                            </button>
-                           {isPanVerified && (
+                           {effectivePanVerified && (
                              <span className="absolute -top-1 -right-1 pointer-events-none" style={{color:'#ccff00'}}>
                                <BsFillPatchCheckFill size={14} />
                              </span>
@@ -1427,7 +1658,7 @@ export default function Profile() {
                            >
                              2
                            </button>
-                           {isBankVerified && (
+                           {effectiveBankVerified && (
                              <span className="absolute -top-1 -right-1 pointer-events-none" style={{color:'#ccff00'}}>
                                <BsFillPatchCheckFill size={14} />
                              </span>
@@ -1438,6 +1669,157 @@ export default function Profile() {
 
               </div>
            </div>
+        </div>
+      )}
+
+
+      {/* EDIT PROFILE MODAL */}
+      {isEditProfileModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-[#0c0c0c] border border-white/10 rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#ccff00]/10 border border-[#ccff00]/20 flex items-center justify-center text-[#ccff00]">
+                  <FiEdit3 size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight">Edit Profile</h3>
+                  <p className="text-zinc-500 text-xs">Update your investor personal details</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsEditProfileModalOpen(false)}
+                className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 text-zinc-400 hover:text-white flex items-center justify-center transition-colors"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
+
+            {/* Modal Form */}
+            <form onSubmit={handleSaveEditProfile} className="p-6 space-y-4">
+              {/* Full Name */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">
+                  Full Name <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <FiUser className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                  <input
+                    type="text"
+                    required
+                    value={editProfileData.fullName}
+                    onChange={(e) => setEditProfileData({ ...editProfileData, fullName: e.target.value })}
+                    placeholder="Enter your full name"
+                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-[#ccff00]/50 transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* Email (Read-Only) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                    Email Address
+                  </label>
+                  <span className="text-[10px] text-zinc-500 font-medium">Read-Only</span>
+                </div>
+                <div className="relative">
+                  <FiMail className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                  <input
+                    type="email"
+                    disabled
+                    value={user?.email || ''}
+                    className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/[0.02] border border-white/5 text-zinc-400 text-sm cursor-not-allowed"
+                  />
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1">Email is tied to your account credentials & KYC identity.</p>
+              </div>
+
+              {/* Mobile Number & Country Code */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">
+                    Country
+                  </label>
+                  <select
+                    value={editProfileData.countryCode}
+                    onChange={(e) => setEditProfileData({ ...editProfileData, countryCode: e.target.value })}
+                    className="w-full px-3 py-3 rounded-xl bg-[#0c0c0c] border border-white/10 text-white text-sm focus:outline-none focus:border-[#ccff00]/50 transition-colors"
+                  >
+                    {COUNTRIES.map((c) => (
+                      <option key={c.name} value={c.code} className="bg-[#0c0c0c] text-white">
+                        {c.code} ({c.iso.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">
+                    Mobile Number
+                  </label>
+                  <div className="relative">
+                    <FiPhone className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+                    <input
+                      type="tel"
+                      value={editProfileData.mobileNumber}
+                      onChange={(e) => setEditProfileData({ ...editProfileData, mobileNumber: e.target.value })}
+                      placeholder="Enter mobile number"
+                      className="w-full pl-11 pr-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-[#ccff00]/50 transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">
+                  Gender
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {['Male', 'Female', 'Other'].map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      onClick={() => setEditProfileData({ ...editProfileData, gender: g })}
+                      className={`py-2.5 rounded-xl border text-xs font-bold transition-all ${
+                        editProfileData.gender?.toLowerCase() === g.toLowerCase()
+                          ? 'bg-[#ccff00]/15 border-[#ccff00] text-[#ccff00]'
+                          : 'bg-white/5 border-white/10 text-zinc-400 hover:border-white/20 hover:text-white'
+                      }`}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setIsEditProfileModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-zinc-300 font-bold text-xs uppercase tracking-wider transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdatingProfile}
+                  className="px-6 py-2.5 rounded-xl bg-[#ccff00] hover:bg-[#b8e600] text-black font-black text-xs uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isUpdatingProfile ? (
+                    <>
+                      <FiLoader className="animate-spin text-sm" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Save Changes</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

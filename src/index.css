@@ -43,3 +43,28 @@
 .animate-shimmer {
   animation: shimmer 2s cubic-bezier(0.445, 0.05, 0.55, 0.95) infinite;
 }
+
+/* Ensure all modals and dialogs with lime green (#ccff00) buttons have black text */
+.swal2-confirm,
+.swal2-styled.swal2-confirm,
+button.swal2-confirm,
+.swal2-confirm.text-black {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+button[style*="204, 255, 0"],
+button[style*="#ccff00"],
+.swal2-confirm[style*="204, 255, 0"],
+.swal2-confirm[style*="#ccff00"],
+.swal2-styled.swal2-confirm[style*="204, 255, 0"],
+.swal2-styled.swal2-confirm[style*="#ccff00"] {
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+.swal2-cancel,
+.swal2-styled.swal2-cancel,
+button.swal2-cancel {
+  color: #ffffff !important;
+}

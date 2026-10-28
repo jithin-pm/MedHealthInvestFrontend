@@ -165,9 +165,20 @@ export default function Footer() {
                 <input
                   required
                   type="tel"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={selectedCountry.code === "+91" ? 10 : 15}
                   placeholder="Phone Number"
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onKeyDown={(e) => {
+                    const allowed = ["Backspace", "Delete", "Tab", "Escape", "Enter", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"];
+                    if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+                    if (!/^[0-9]$/.test(e.key)) e.preventDefault();
+                  }}
+                  onChange={(e) => {
+                    const maxLen = selectedCountry.code === "+91" ? 10 : 15;
+                    setFormData({ ...formData, phone: e.target.value.replace(/\D/g, "").slice(0, maxLen) });
+                  }}
                   className="w-full bg-transparent text-sm text-white outline-none"
                 />
               </div>

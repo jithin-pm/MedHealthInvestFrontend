@@ -256,10 +256,10 @@ export default function ActiveProjectCard({ project }) {
 
         <div className="flex justify-between items-center mb-6">
            <span className="text-lg md:text-xl font-black text-white">
-             ₹{Number(project.collected).toLocaleString('en-IN')}
+             <span className="mr-0.5">₹</span>{Number(project.collected).toLocaleString('en-IN')}
            </span>
            <span className="text-xs md:text-sm font-medium text-zinc-500">
-             of ₹{Number(project.target).toLocaleString('en-IN')}
+             of <span className="mr-0.5">₹</span>{Number(project.target).toLocaleString('en-IN')}
            </span>
         </div>
 

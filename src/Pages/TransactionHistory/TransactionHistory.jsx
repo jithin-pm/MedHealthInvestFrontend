@@ -16,7 +16,15 @@ import {
    FiCalendar
 } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
-import { generateInvestmentReceipt } from '../../Utils/generateReceipt';
+
+const formatDateDDMMYYYY = (dateVal) => {
+  const d = dateVal ? new Date(dateVal) : new Date();
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    return String(now.getDate()).padStart(2, '0') + String(now.getMonth() + 1).padStart(2, '0') + now.getFullYear();
+  }
+  return String(d.getDate()).padStart(2, '0') + String(d.getMonth() + 1).padStart(2, '0') + d.getFullYear();
+};
 
 const TransactionHistory = () => {
    const navigate = useNavigate();
@@ -94,38 +102,53 @@ const TransactionHistory = () => {
       const ledger = [];
       transactions.forEach(inv => {
          if (inv.isSpecial) {
-             // 1. Initial Investment (Debit)
+             const invDate = inv.created_at || inv.createdAt || new Date();
+             const invDateStr = formatDateDDMMYYYY(invDate);
+
+             // 1. Initial Investment (Debit): SPL-DDMMYYYY-XX
              ledger.push({
                 ...inv,
                 ledgerType: 'DEBIT',
-                ledgerDate: inv.created_at,
+                ledgerDate: invDate,
                 ledgerAmount: Number(inv.amount || inv.amountInvested),
-                ledgerRef: `SP-INV-${String(inv.id).padStart(6, '0')}`
+                ledgerRef: `SPL-${invDateStr}-${String(inv.id).padStart(2, '0')}`
              });
   
              if (inv.payouts && inv.payouts.length > 0) {
                 inv.payouts.forEach(p => {
+                   const payDate = p.paidAt || p.created_at || p.createdAt || new Date();
+                   const payDateStr = formatDateDDMMYYYY(payDate);
                    ledger.push({
                       ...inv, 
                       ledgerType: 'CREDIT',
                       isRefund: false,
-                      ledgerDate: p.paidAt || p.created_at,
+                      ledgerDate: payDate,
                       ledgerAmount: Number(p.totalPaid),
                       capitalPaid: Number(p.capitalPaid),
                       roiPaid: Number(p.roiPaid),
-                      ledgerRef: `SP-PAY-${String(p.id).padStart(6, '0')}`,
+                      ledgerRef: `SPL-PAY-${payDateStr}-${String(p.id).padStart(2, '0')}`,
                       paybackProof: p.paybackProof
                    });
                 });
              }
          } else {
+             const isExclusive = inv.project?.projectType === 'Exclusive' || inv.project?.projectCategory === 'Exclusive';
+             const invDate = inv.created_at || inv.createdAt || new Date();
+             const invDateStr = formatDateDDMMYYYY(invDate);
+
+             // Standard projects display the Razorpay paymentId (e.g. pay_xxxxxxxxxx)
+             // Exclusive projects display EXP-DDMMYYYY-XX
+             const invRef = isExclusive 
+                ? `EXP-${invDateStr}-${String(inv.id).padStart(2, '0')}` 
+                : (inv.paymentId || `INV-${String(inv.id).padStart(6, '0')}`);
+
              // 1. Always add the Investment (Debit) entry
              ledger.push({
                 ...inv,
                 ledgerType: 'DEBIT',
-                ledgerDate: inv.created_at,
+                ledgerDate: invDate,
                 ledgerAmount: Number(inv.amount),
-                ledgerRef: `INV-${String(inv.id).padStart(6, '0')}`
+                ledgerRef: invRef
              });
     
              // 2. If paid back, add the Settlement (Credit) entry
@@ -137,20 +160,31 @@ const TransactionHistory = () => {
                 const principal = Number(inv.amount);
                 const interest = (principal * roi * duration) / 100;
                 const totalMaturity = principal + interest;
+                const settleDate = inv.updated_at || inv.updatedAt || invDate;
+                const settleDateStr = formatDateDDMMYYYY(settleDate);
+
+                let payRef;
+                if (isRefund) {
+                   payRef = `REF-${settleDateStr}-${String(inv.id).padStart(2, '0')}`;
+                } else if (isExclusive) {
+                   payRef = `EXP-PAY-${settleDateStr}-${String(inv.id).padStart(2, '0')}`;
+                } else {
+                   payRef = `STD-${settleDateStr}-${String(inv.id).padStart(2, '0')}`;
+                }
     
                 ledger.push({
                    ...inv,
                    ledgerType: 'CREDIT',
                    isRefund: isRefund,
-                   ledgerDate: inv.updated_at || inv.created_at,
+                   ledgerDate: settleDate,
                    ledgerAmount: totalMaturity,
                    capitalPaid: principal,
                    roiPaid: interest,
-                   ledgerRef: `PAY-${String(inv.id).padStart(6, '0')}`
+                   ledgerRef: payRef
                 });
              }
-         }
-      });
+          }
+       });
 
       // Sort by date descending
       return ledger.sort((a, b) => new Date(b.ledgerDate) - new Date(a.ledgerDate));
@@ -205,11 +239,11 @@ const TransactionHistory = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px] space-y-2">
                   <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Total Deployments</span>
-                  <p className="text-3xl font-black text-white">₹{transactions.reduce((acc, inv) => acc + Number(inv.amount || inv.amountInvested), 0).toLocaleString('en-IN')}</p>
+                  <p className="text-3xl font-black text-white"><span className="mr-1 font-sans">₹</span>{transactions.reduce((acc, inv) => acc + Number(inv.amount || inv.amountInvested), 0).toLocaleString('en-IN')}</p>
                </div>
                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px] space-y-2">
                   <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Settled Payouts</span>
-                  <p className="text-3xl font-black text-[#ccff00]">₹{processedTransactions.filter(inv => inv.ledgerType === 'CREDIT').reduce((acc, inv) => acc + Number(inv.ledgerAmount), 0).toLocaleString('en-IN')}</p>
+                  <p className="text-3xl font-black text-[#ccff00]">+<span className="mr-1 font-sans">₹</span>{processedTransactions.filter(inv => inv.ledgerType === 'CREDIT').reduce((acc, inv) => acc + Number(inv.ledgerAmount), 0).toLocaleString('en-IN')}</p>
                </div>
                <div className="bg-zinc-900/50 border border-white/5 p-8 rounded-[32px] space-y-2">
                   <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Record Count</span>
@@ -254,27 +288,46 @@ const TransactionHistory = () => {
                                     </div>
 
                                     <div className="lg:hidden">
+                                       <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest block mb-0.5">
+                                          {inv.isSpecial || inv.project?.projectCategory === 'Special' || inv.project?.projectType === 'Special' ? 'Special Project' : (inv.project?.projectType === 'Exclusive' ? 'Exclusive Project' : 'Standard Project')}
+                                       </span>
                                        <h4 className="font-bold text-white text-lg">{inv.project?.projectName}</h4>
+                                       <div className="mt-2 flex items-center gap-2">
+                                          <span className="inline-flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-800/90 border border-white/10 shadow-sm backdrop-blur-sm">
+                                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${inv.ledgerType === 'CREDIT'
+                                                ? (inv.isRefund ? 'bg-[#dfb76c] shadow-[0_0_8px_rgba(223,183,108,0.5)]' : 'bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.5)]')
+                                                : 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
+                                                }`} />
+                                             <span className="text-[10px] font-medium text-zinc-200 tracking-wide">
+                                                {inv.ledgerType === 'CREDIT' ? (inv.isRefund ? 'Refund' : 'Payout') : 'Initial Investment'}
+                                             </span>
+                                          </span>
+                                          <span className="text-[9px] text-zinc-500 font-medium uppercase tracking-widest font-mono">
+                                             {inv.ledgerRef}
+                                          </span>
+                                       </div>
                                     </div>
-                                    <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest lg:hidden">
-                                       {inv.ledgerType === 'CREDIT' ? `Credit • ${inv.isRefund ? 'Refund' : 'Payout'}` : 'Debit • Invested'}
-                                    </span>
                                  </div>
                               </div>
 
                               {/* Project Details (Desktop) */}
                               <div className="hidden lg:flex flex-col col-span-2">
                                  <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">
-                                    {inv.project?.projectType === 'Exclusive' ? 'Exclusive Asset' : 'Standard Asset'}
+                                    {inv.isSpecial || inv.project?.projectCategory === 'Special' || inv.project?.projectType === 'Special' ? 'Special Project' : (inv.project?.projectType === 'Exclusive' ? 'Exclusive Project' : 'Standard Project')}
                                  </span>
                                  <h4 className="text-lg font-bold text-white tracking-tight">{inv.project?.projectName}</h4>
-                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2 py-0.5 rounded ${inv.ledgerType === 'CREDIT' ? 'bg-[#ccff00]/10 text-[#ccff00]' : 'bg-white/5 text-zinc-500'
-                                       }`}>
-                                       {inv.ledgerType === 'CREDIT' ? (inv.isRefund ? 'Refund' : 'Payout') : 'Invested'}
+                                 <div className="flex items-center gap-2.5 mt-2">
+                                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-zinc-800/90 border border-white/10 shadow-sm backdrop-blur-sm">
+                                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${inv.ledgerType === 'CREDIT'
+                                          ? (inv.isRefund ? 'bg-[#dfb76c] shadow-[0_0_8px_rgba(223,183,108,0.5)]' : 'bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.5)]')
+                                          : 'bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]'
+                                          }`} />
+                                       <span className="text-[11px] font-medium text-zinc-200 tracking-wide">
+                                          {inv.ledgerType === 'CREDIT' ? (inv.isRefund ? 'Refund' : 'Payout') : 'Initial Investment'}
+                                       </span>
                                     </span>
                                     <span className="w-1 h-1 rounded-full bg-zinc-800" />
-                                    <span className="text-[10px] text-zinc-600 font-medium uppercase tracking-widest">
+                                    <span className="text-[10px] text-zinc-500 font-medium uppercase tracking-widest font-mono">
                                        Ref: {inv.ledgerRef}
                                     </span>
                                  </div>
@@ -285,7 +338,7 @@ const TransactionHistory = () => {
 
                                  <div className="flex flex-col">
                                     <span className={`text-xl font-bold tabular-nums ${inv.ledgerType === 'CREDIT' ? 'text-[#ccff00]' : 'text-white'}`}>
-                                       ₹ {Number(inv.ledgerAmount).toLocaleString('en-IN')}
+                                       <span className="mr-0.5 font-sans">₹</span>{Number(inv.ledgerAmount).toLocaleString('en-IN')}
                                     </span>
                                  </div>
                               </div>
@@ -309,37 +362,7 @@ const TransactionHistory = () => {
                                        <FiPaperclip size={20} />
                                     </button>
 
-                                    {/* 2. DOWNLOAD ACTION (Download Icon) */}
-                                    <button
-                                       onClick={() => {
-                                          const user = JSON.parse(localStorage.getItem('medhealthinvestuser'));
-                                          if (inv.ledgerType === 'CREDIT') {
-                                             generateInvestmentReceipt({
-                                                amount: inv.ledgerAmount,
-                                                paymentId: inv.ledgerRef,
-                                                projectTitle: inv.project?.projectName,
-                                                duration: inv.project?.duration,
-                                                isPayout: !inv.isRefund,
-                                                isRefund: inv.isRefund,
-                                                paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null,
-                                                projectType: inv.isSpecial ? 'SPECIAL' : (inv.project?.projectType || 'STANDARD')
-                                             }, user, 'download');
-                                          } else {
-                                             generateInvestmentReceipt({
-                                                 amount: inv.amount || inv.amountInvested,
-                                                 paymentId: inv.paymentId,
-                                                 projectTitle: inv.project?.projectName,
-                                                 duration: inv.project?.duration,
-                                                 paybackProof: inv.paybackProof ? `${BASE_URL}/${inv.paybackProof}` : null,
-                                                 projectType: inv.isSpecial ? 'SPECIAL' : (inv.project?.projectType || 'STANDARD')
-                                              }, user, 'download');
-                                          }
-                                       }}
-                                       className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500 hover:text-white transition-all"
-                                       title={inv.isRefund ? "Download Refund Receipt" : "Download PDF Document"}
-                                    >
-                                       <FiDownload size={20} />
-                                    </button>
+
                                  </div>
                               </div>
                            </div>

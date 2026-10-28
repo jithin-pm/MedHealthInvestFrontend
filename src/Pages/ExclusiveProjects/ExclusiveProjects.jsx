@@ -58,19 +58,32 @@ const ExclusiveProjectCard = ({ project }) => {
              </span>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            
-            {project.activeDeadline && (
-               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                 
-                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                   {(() => {
-                     const diff = new Date(project.activeDeadline) - new Date();
-                     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                     return days > 0 ? `${days} Days Left` : 'Ending Soon';
-                   })()}
-                 </span>
-               </div>
-            )}
+            {(() => {
+              let daysText = null;
+              if (project.status === 'ONGOING') {
+                const maturityDate = project.completionDate ? new Date(project.completionDate) : 
+                                    (project.ongoingStartDate ? new Date(new Date(project.ongoingStartDate).getTime() + (parseInt(project.duration) * 30 * 24 * 60 * 60 * 1000)) : null);
+                if (maturityDate) {
+                  const diff = maturityDate - new Date();
+                  const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                  daysText = days > 0 ? `${days} Days Left` : 'Tenure Ending';
+                }
+              } else if (project.status === 'COMPLETED') {
+                daysText = 'Completed';
+              } else if (project.activeDeadline) {
+                const diff = new Date(project.activeDeadline) - new Date();
+                const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                daysText = days > 0 ? `${days} Days Left` : 'Ending Soon';
+              }
+
+              return daysText ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                    {daysText}
+                  </span>
+                </div>
+              ) : null;
+            })()}
           </div>
         </div>
         <h3 className="text-2xl font-bold text-white tracking-tight leading-tight mb-2">
@@ -102,17 +115,17 @@ const ExclusiveProjectCard = ({ project }) => {
 
         <div className="flex justify-between items-center mb-6">
            <span className="text-lg md:text-xl font-black text-white tracking-tight">
-             ₹{Number(collected).toLocaleString('en-IN')}
+             <span className="mr-0.5 font-sans">₹</span>{Number(collected).toLocaleString('en-IN')}
            </span>
            <span className="text-xs md:text-sm font-medium text-zinc-500">
-             of ₹{Number(target).toLocaleString('en-IN')}
+             of <span className="mr-0.5 font-sans">₹</span>{Number(target).toLocaleString('en-IN')}
            </span>
         </div>
 
         <div className="flex flex-col gap-4">
           <Link to={`/project/${project.id}`} className="group/btn relative w-full py-5 bg-[#ccff00] text-black rounded-2xl text-[14px] font-black  uppercase overflow-hidden active:scale-[0.98] transition-all duration-300  flex items-center justify-center gap-2">
              <span className="relative z-10 flex items-center justify-center gap-2">
-                Assets <FiArrowRight className="text-[14px] transition-transform duration-500 group-hover/btn:translate-x-1" />
+                Asset Overview <FiArrowRight className="text-[14px] transition-transform duration-500 group-hover/btn:translate-x-1" />
              </span>
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-from)_0%,transparent_50%)] via-white/40 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
           </Link>

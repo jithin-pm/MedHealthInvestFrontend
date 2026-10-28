@@ -67,6 +67,18 @@ instance.interceptors.response.use(
     async (error) => {
         const originalRequest = error.config;
 
+        // Account Deactivated (403 with isInactive or deactivated message)
+        if (error.response?.status === 403 && (error.response?.data?.isInactive || error.response?.data?.message?.toLowerCase().includes("deactivated"))) {
+            localStorage.removeItem('medhealthinvestuser');
+            sessionStorage.clear();
+            window.dispatchEvent(new CustomEvent('account_deactivated', { 
+                detail: { 
+                    message: error.response.data?.message || 'Your account has been deactivated by administrator. Please contact support.' 
+                } 
+            }));
+            return Promise.reject(error);
+        }
+
         // 2. 401 Error: Authorization failed (Token expired)
         if (error.response?.status === 401 && !originalRequest._retry) {
             

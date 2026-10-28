@@ -1,11 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Navbar from '../Home/HomeComponents/Navbar'
 import Footer from '../../Components/Footer'
-import { getUserSpecialProjectsApi, getUserSpecialInvestmentsApi, getSpecialPayoutScheduleApi, saveEnquiryApi } from '../../Services/allApi'
+import { getUserSpecialProjectsApi, saveEnquiryApi } from '../../Services/allApi'
 import { BASE_URL } from '../../services/baseUrl'
-import { LuCrown } from 'react-icons/lu';
-import { HiOutlineChartPie } from 'react-icons/hi';
-import { FiArrowRight, FiArrowLeft, FiX, FiLoader, FiSend, FiDownload } from 'react-icons/fi'
+import { LuCrown } from 'react-icons/lu'
+import { FiArrowRight, FiArrowLeft, FiX, FiLoader, FiSend } from 'react-icons/fi'
 import { Link, useNavigate } from 'react-router-dom'
 import Swal from 'sweetalert2'
 
@@ -13,14 +12,23 @@ const SpecialProjectCard = ({ project }) => {
   const [isLoaded, setIsLoaded] = useState(false)
   const cardRef = useRef(null)
   
-  const images = JSON.parse(project.projectImages || '[]')
+  let images = []
+  try {
+    images = JSON.parse(project.projectImages || '[]')
+  } catch (e) {
+    images = []
+  }
   const mainImage = images.length > 0 ? `${BASE_URL}/${images[0].replace(/\\/g, '/')}` : ''
   const target = parseFloat(project.targetAmount) || 0
   const collected = parseFloat(project.collectedAmount || 0)
   const progress = target > 0 ? (collected / target) * 100 : 0
   
-  const roiText = project.roi.toString().includes('%') ? project.roi : `${project.roi}% Monthly`
-  const durationText = ''.includes('Month') ? project.duration : `${project.duration} Months`
+  const roiText = project.roi 
+    ? (project.roi.toString().includes('%') ? project.roi : `${project.roi}% Monthly`)
+    : 'N/A'
+  const durationText = project.duration 
+    ? (project.duration.toString().includes('Month') ? project.duration : `${project.duration} Months`)
+    : ''
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -44,7 +52,7 @@ const SpecialProjectCard = ({ project }) => {
   return (
     <div 
       ref={cardRef}
-      className="group relative h-full flex flex-col bg-zinc-900 rounded-[32px] p-6 border-2 border-[#ccff00] transition-all duration-500 hover:shadow-[0_30px_70px_rgba(0,0,0,0.5)]"
+      className="group relative h-full flex flex-col bg-zinc-900 rounded-[32px] p-6 border border-white/5 hover:border-[#ccff00]/50 transition-all duration-500 hover:shadow-[0_30px_70px_rgba(0,0,0,0.5)]"
     >
       {/* Horizontal Accent Bar - Pill Style */}
       <div className="absolute top-0 left-10 right-10 h-[6px] rounded-b-full bg-[#ccff00] transition-all duration-500" />
@@ -59,20 +67,32 @@ const SpecialProjectCard = ({ project }) => {
              </span>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            
-            
-            {project.activeDeadline && (
-               <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/5 border border-white/10">
-                 
-                 <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                   {(() => {
-                     const diff = new Date(project.activeDeadline) - new Date();
-                     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-                     return days > 0 ? `${days} Days Left` : 'Ending Soon';
-                   })()}
-                 </span>
-               </div>
-            )}
+            {(() => {
+              let daysText = null;
+              if (project.status === 'ONGOING') {
+                const maturityDate = project.completionDate ? new Date(project.completionDate) : 
+                                    (project.ongoingStartDate ? new Date(new Date(project.ongoingStartDate).getTime() + (parseInt(project.duration) * 30 * 24 * 60 * 60 * 1000)) : null);
+                if (maturityDate) {
+                  const diff = maturityDate - new Date();
+                  const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                  daysText = days > 0 ? `${days} Days Left` : 'Tenure Ending';
+                }
+              } else if (project.status === 'COMPLETED') {
+                daysText = 'Completed';
+              } else if (project.activeDeadline) {
+                const diff = new Date(project.activeDeadline) - new Date();
+                const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+                daysText = days > 0 ? `${days} Days Left` : 'Ending Soon';
+              }
+
+              return daysText ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10">
+                  <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                    {daysText}
+                  </span>
+                </div>
+              ) : null;
+            })()}
           </div>
         </div>
         <h3 className="text-2xl font-bold text-white tracking-tight leading-tight mb-2">
@@ -83,40 +103,63 @@ const SpecialProjectCard = ({ project }) => {
       {/* Financial Metrics */}
       <div className="flex flex-col gap-2 mb-4 py-3 border-y border-white/5 font-bold">
         <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-[110px] shrink-0">Target ROI :</span>
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-28 shrink-0">Target ROI :</span>
           <span className="text-[#ccff00] whitespace-nowrap">{roiText}</span>
         </div>
+        {durationText && (
+          <div className="flex items-center gap-2 text-[14px]">
+            <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-28 shrink-0">Duration :</span>
+            <span className="text-white whitespace-nowrap">{durationText}</span>
+          </div>
+        )}
         <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-[110px] shrink-0">Invested :</span>
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-28 shrink-0">Invested :</span>
           <span className="text-white whitespace-nowrap">
-            {new Date(project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {project.created_at ? new Date(project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
           </span>
         </div>
         
         {project.totalInvested !== undefined && (
           <div className="pt-2 mt-2 border-t border-white/5 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-[14px]">
-              <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-[110px] shrink-0">Total Invested :</span>
-              <span className="text-white whitespace-nowrap">₹{Number(project.totalInvested).toLocaleString('en-IN')}</span>
+              <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-28 shrink-0">Total Invested :</span>
+              <span className="text-white whitespace-nowrap"><span className="mr-0.5 font-sans">₹</span>{Number(project.totalInvested).toLocaleString('en-IN')}</span>
             </div>
             <div className="flex items-center gap-2 text-[14px]">
-              <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-[110px] shrink-0">Returned :</span>
-              <span className="text-[#ccff00] whitespace-nowrap">₹{Number(project.moneyReturned).toLocaleString('en-IN')}</span>
+              <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-28 shrink-0">Returned :</span>
+              <span className="text-[#ccff00] whitespace-nowrap"><span className="mr-0.5 font-sans">₹</span>{Number(project.moneyReturned).toLocaleString('en-IN')}</span>
             </div>
             <div className="flex items-center gap-2 text-[14px]">
-              <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-[110px] shrink-0">Balance :</span>
-              <span className="text-white whitespace-nowrap">₹{Number(project.currentBalance).toLocaleString('en-IN')}</span>
+              <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-28 shrink-0">Balance :</span>
+              <span className="text-white whitespace-nowrap"><span className="mr-0.5 font-sans">₹</span>{Number(project.currentBalance).toLocaleString('en-IN')}</span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Action Section */}
-      <div className="mt-auto pt-4 border-t border-white/5">
+      {/* Progress Section */}
+      <div className="mt-auto pt-4">
+        {/* Animated Linear Bar */}
+        <div className="relative w-full h-1.5 bg-zinc-800/50 rounded-full overflow-hidden mb-3">
+           <div 
+             className="absolute top-0 left-0 h-full bg-[#ccff00] transition-all duration-[2000ms] ease-out shadow-[0_0_10px_#ccff00]"
+             style={{ width: isLoaded ? `${Math.min(progress, 100)}%` : '0%' }}
+           />
+        </div>
+
+        <div className="flex justify-between items-center mb-6">
+           <span className="text-lg md:text-xl font-black text-white tracking-tight">
+             <span className="mr-0.5 font-sans">₹</span>{Number(collected).toLocaleString('en-IN')}
+           </span>
+           <span className="text-xs md:text-sm font-medium text-zinc-500">
+             of <span className="mr-0.5 font-sans">₹</span>{Number(target).toLocaleString('en-IN')}
+           </span>
+        </div>
+
         <div className="flex flex-col gap-4">
-          <Link to={`/special-project/${project.id}/transactions`} className="group/btn relative w-full py-5 bg-[#ccff00] text-black rounded-2xl text-[14px] font-black  uppercase overflow-hidden active:scale-[0.98] transition-all duration-300  flex items-center justify-center gap-2">
+          <Link to={`/special-project/${project.id}/transactions`} className="group/btn relative w-full py-5 bg-[#ccff00] text-black rounded-2xl text-[14px] font-black uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 flex items-center justify-center gap-2">
              <span className="relative z-10 flex items-center justify-center gap-2">
-                View Transactions <FiArrowRight className="text-[14px] transition-transform duration-500 group-hover/btn:translate-x-1" />
+                Asset Overview <FiArrowRight className="text-[14px] transition-transform duration-500 group-hover/btn:translate-x-1" />
              </span>
              <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,var(--tw-gradient-from)_0%,transparent_50%)] via-white/40 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
           </Link>
@@ -154,7 +197,7 @@ export default function SpecialProjects() {
         const res = await getUserSpecialProjectsApi(user.id)
         if (res.status === 200) {
           const special = res.data
-          setAllProjects(special)
+          setAllProjects(special || [])
         }
       } catch (err) {
         console.error("Error fetching projects:", err)
@@ -245,7 +288,10 @@ export default function SpecialProjects() {
           text: 'Request sent successfully to our private team.',
           background: '#18181b',
           color: '#fff',
-          confirmButtonColor: '#ccff00'
+          confirmButtonColor: '#ccff00',
+          customClass: {
+            confirmButton: 'text-black font-bold px-6 py-2.5 rounded-xl'
+          }
         })
         setIsModalOpen(false)
         setMessage('')
@@ -277,9 +323,9 @@ export default function SpecialProjects() {
   const Section = ({ title, projects, emptyText }) => (
     <div className="mb-24">
       <div className="flex items-center gap-4 mb-10">
-        <h2 className="text-2xl md:text-3xl font-black text-black tracking-tight uppercase">{title}</h2>
-        <div className="flex-1 h-px bg-black/5" />
-        <span className="px-4 py-1 rounded-full bg-zinc-100 text-black text-[10px] font-black uppercase tracking-widest">
+        <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight uppercase">{title}</h2>
+        <div className="flex-1 h-px bg-white/10" />
+        <span className="px-4 py-1 rounded-full bg-white/5 border border-white/10 text-zinc-300 text-[10px] font-black uppercase tracking-widest">
           {projects.length} {projects.length === 1 ? 'Asset' : 'Assets'}
         </span>
       </div>
@@ -291,39 +337,38 @@ export default function SpecialProjects() {
           ))}
         </div>
       ) : (
-        <div className="py-20 flex flex-col items-center justify-center bg-zinc-50 rounded-[40px] border border-dashed border-black/10 text-center px-6">
-          <p className="text-black/30 font-bold uppercase text-[10px] tracking-[0.3em]">{emptyText}</p>
+        <div className="py-20 flex flex-col items-center justify-center bg-zinc-900/40 rounded-[40px] border border-dashed border-white/10 text-center px-6">
+          <p className="text-zinc-500 font-bold uppercase text-[10px] tracking-[0.3em]">{emptyText}</p>
         </div>
       )}
     </div>
   )
 
   return (
-    <main className="bg-white min-h-screen relative font-['Poppins'] selection:bg-black selection:text-[#ccff00]">
+    <main className="bg-black min-h-screen text-white relative font-['Poppins'] selection:bg-[#ccff00] selection:text-black">
       <Navbar />
 
       <div className="max-w-[1400px] mx-auto px-6 lg:px-20 pt-32 pb-32">
         
         {/* Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-20 border-b border-black/5 pb-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-20 border-b border-white/10 pb-12">
           <div className="flex flex-col gap-6">
             <button 
               onClick={() => navigate('/profile')}
-              className="flex w-fit items-center gap-2 text-[12px] font-black text-black bg-black/5 hover:bg-black/10 px-4 py-2.5 rounded-full uppercase tracking-widest transition-all hover:pr-5 group"
+              className="flex w-fit items-center gap-2 text-[12px] font-black text-white bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2.5 rounded-full uppercase tracking-widest transition-all hover:pr-5 group"
             >
-              <FiArrowLeft className="transition-transform group-hover:-translate-x-1" /> Back to Profile
+              <FiArrowLeft className="transition-transform group-hover:-translate-x-1 text-[#ccff00]" /> Back to Profile
             </button>
-            <h1 className="text-5xl md:text-7xl font-black text-black tracking-tighter leading-tight">
-              Special <span className="font-serif italic font-light text-zinc-400">Projects</span>
+            <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-tight">
+              Special <span className="font-serif italic font-light text-zinc-500">Projects</span>
             </h1>
           </div>
-        
         </div>
 
         {loading ? (
           <div className="py-32 flex flex-col items-center justify-center gap-4">
-             <div className="w-10 h-10 border-2 border-black/10 border-t-black rounded-full animate-spin" />
-             <p className="text-[10px] font-black uppercase tracking-widest text-black/20">Accessing Secure Vault...</p>
+             <div className="w-10 h-10 border-2 border-white/10 border-t-[#ccff00] rounded-full animate-spin" />
+             <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Accessing Secure Vault...</p>
           </div>
         ) : (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -334,22 +379,21 @@ export default function SpecialProjects() {
             />
 
             {/* Call to Action Below Sections */}
-            <div className="mt-10 py-16 md:py-24 flex flex-col items-center justify-center bg-zinc-50 rounded-[40px] border border-black/5 text-center px-6">
-              <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center border border-black/5 mb-6 shadow-xl shadow-black/5">
-                 <LuCrown className="text-2xl text-black" />
+            <div className="mt-10 py-16 md:py-24 flex flex-col items-center justify-center bg-zinc-900/80 rounded-[40px] border border-white/10 text-center px-6 relative overflow-hidden shadow-2xl">
+              <div className="w-16 h-16 rounded-full bg-black flex items-center justify-center border border-white/10 mb-6 shadow-xl shadow-black/50">
+                 <LuCrown className="text-2xl text-[#ccff00]" />
               </div>
-              <h3 className="text-3xl md:text-4xl font-black text-black tracking-tight mb-4">Seeking Additional Allocations?</h3>
-              <p className="text-zinc-500 text-sm md:text-base font-medium leading-relaxed max-w-xl mb-10">
+              <h3 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-4">Seeking Additional Allocations?</h3>
+              <p className="text-zinc-400 text-sm md:text-base font-medium leading-relaxed max-w-xl mb-10">
                 If you are looking to deploy more capital into our special institutional assets, you can request a new allocation and our private team will get in touch with you directly.
               </p>
               <button 
                  onClick={handleRequestAllocationClick}
-                 className="group relative flex items-center justify-center gap-4 px-14 py-4 bg-black text-white rounded-full border border-black/10 hover:border-black hover:shadow-2xl transition-all duration-700 w-full md:w-auto"
+                 className="group relative flex items-center justify-center gap-4 px-14 py-4 bg-[#ccff00] hover:bg-[#d8ff33] text-black rounded-full border border-black/10 hover:shadow-[0_0_30px_rgba(204,255,0,0.35)] transition-all duration-700 w-full md:w-auto"
               >
-                 
                  <div className="flex flex-col items-center justify-center ">
-                    <span className="text-[10px] font-bold text-white uppercase tracking-widest transition-colors">Special Access</span>
-                    <span className="text-[13px] font-black uppercase tracking-[0.2em]">
+                    <span className="text-[10px] font-bold text-black/70 uppercase tracking-widest transition-colors">Special Access</span>
+                    <span className="text-[13px] font-black uppercase tracking-[0.2em] text-black">
                        Request Allocation
                     </span>
                  </div>
@@ -359,9 +403,9 @@ export default function SpecialProjects() {
         )}
 
         {/* Footer Info */}
-        <div className="mt-20 pt-10 border-t border-black/5 flex flex-col items-center text-center">
-           <LuCrown className="text-2xl text-black mb-6" />
-           <p className="max-w-md text-black/30 text-[10px] font-black uppercase tracking-[0.3em] leading-loose">
+        <div className="mt-20 pt-10 border-t border-white/10 flex flex-col items-center text-center">
+           <LuCrown className="text-2xl text-[#ccff00]/60 mb-6" />
+           <p className="max-w-md text-zinc-500 text-[10px] font-black uppercase tracking-[0.3em] leading-loose">
              Med Health Invest Institutional <br/> 
              Tier 1 Security Protocol <br/>
              © 2026 Private Ledger
@@ -370,7 +414,7 @@ export default function SpecialProjects() {
       </div>
       <Footer />
 
-      {/* 🔮 Special Enquiry Modal */}
+      {/* Special Enquiry Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
            <div className="relative w-full max-w-lg bg-zinc-900 border border-white/10 rounded-[32px] overflow-hidden shadow-2xl">
@@ -390,8 +434,6 @@ export default function SpecialProjects() {
               </div>
 
               <form onSubmit={handleSubmitEnquiry} className="p-8 space-y-5">
-
-                {/* Pre-filled user credentials (read-only) */}
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Subject</label>
@@ -406,7 +448,6 @@ export default function SpecialProjects() {
                   <div>
                     <label className="block text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-2">Phone Number</label>
                     <div className="flex gap-2">
-                      {/* Read-only flag + country code */}
                       <div className="flex items-center gap-2 px-3 py-3.5 bg-white/5 border border-white/10 rounded-xl cursor-not-allowed shrink-0">
                         <img
                           src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`}
@@ -415,7 +456,6 @@ export default function SpecialProjects() {
                         />
                         <span className="text-sm font-bold text-[#ccff00]">{selectedCountry.code}</span>
                       </div>
-                      {/* Read-only phone number */}
                       <input
                         type="tel"
                         value={phone}
@@ -441,7 +481,7 @@ export default function SpecialProjects() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="group w-full py-5 bg-[#ccff00] text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase transition-all duration-300 hover:bg-white active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group w-full py-5 bg-[#ccff00] text-black rounded-2xl text-[12px] font-black tracking-[0.2em] uppercase transition-all duration-300 hover:bg-white active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {isSubmitting ? (
                     <FiLoader className="animate-spin text-lg" />
@@ -450,7 +490,7 @@ export default function SpecialProjects() {
                   )}
                 </button>
 
-                <p className="text-[12px] text-zinc-600 text-center font-bold ">
+                <p className="text-[12px] text-zinc-500 text-center font-medium">
                   Private concierge response within 24 business hours.
                 </p>
               </form>

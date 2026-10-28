@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { FiChevronDown, FiArrowRight, FiActivity, FiRefreshCw, FiCheckCircle, FiX, FiUser, FiLogOut, FiList } from 'react-icons/fi'
+import { FiChevronDown, FiChevronRight, FiArrowRight, FiActivity, FiRefreshCw, FiCheckCircle, FiX, FiUser, FiLogOut, FiList, FiLayers, FiZap, FiAward } from 'react-icons/fi'
 import { BsFillPatchCheckFill } from 'react-icons/bs'
 import Logo from '../../../Components/Logo'
 import Swal from 'sweetalert2'
@@ -9,10 +9,12 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [user, setUser] = useState(null)
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isMobileStandardOpen, setIsMobileStandardOpen] = useState(true)
+  const [isStandardHovered, setIsStandardHovered] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
 
-  const isProjectPage = ['/active-projects', '/ongoing-projects', '/completed-projects', '/exclusive-projects'].includes(location.pathname)
+  const isProjectPage = ['/active-projects', '/ongoing-projects', '/completed-projects', '/exclusive-projects', '/special-projects'].includes(location.pathname)
   const isAboutPage = location.pathname === '/about'
   const isHomePage = location.pathname === '/'
 
@@ -91,33 +93,94 @@ export default function Navbar() {
           </Link>
 
           {/* Projects Dropdown Menu */}
-          <div className="group relative py-4 cursor-pointer">
+          <div 
+            className="group relative py-4 cursor-pointer"
+            onMouseLeave={() => setIsStandardHovered(false)}
+          >
             <div className={`flex items-center gap-1.5 text-[15px] font-bold transition-colors group-hover:text-[#ccff00] ${
               isProjectPage ? 'text-[#ccff00]' : 'text-white'
             }`}>
               Projects <FiChevronDown className="text-lg transition-transform duration-300 group-hover:-rotate-180" />
             </div>
 
-            {/* Simple & Short Dropdown Container */}
-            <div className="absolute top-[calc(100%+21px)] left-1/2 -translate-x-1/2 w-[550px] bg-zinc-900 border border-white/10 rounded-t-none rounded-b-2xl py-4 px-6 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-300  transform origin-top shadow-2xl shadow-top-none group-hover:translate-y-0 translate-y-1 before:absolute before:-top-3 before:left-0 before:w-full before:h-3">
-              <div className="flex flex-row items-center justify-between gap-2">
-                {/* Item 1: Active */}
-                <Link to="/active-projects" className="flex flex-1 items-center gap-3 px-4 py-3 hover:bg-zinc-800/50 rounded-xl transition-colors group/item">
+            {/* Integrated 2-Tier Attached Console Modal */}
+            <div className="absolute top-[calc(100%+21px)] left-1/2 -translate-x-1/2 w-[550px] bg-zinc-900 border border-white/10 rounded-t-none rounded-b-2xl shadow-2xl opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-300 transform origin-top group-hover:translate-y-0 translate-y-1 before:absolute before:-top-3 before:left-0 before:w-full before:h-3 overflow-hidden">
+              
+              {/* Tier 1: Main Project Categories */}
+              <div className="flex flex-row items-center justify-between gap-2 py-4 px-6">
+                {/* Item 1: Standard with Toggle */}
+                <div 
+                  onMouseEnter={() => setIsStandardHovered(true)}
+                  className={`flex flex-1 items-center justify-center gap-2 px-4 py-3 rounded-xl transition-all cursor-pointer ${
+                    isStandardHovered ? 'bg-zinc-800/80 text-[#ccff00]' : 'hover:bg-zinc-800/50 text-white'
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.5)] transition-transform ${
+                    isStandardHovered ? 'scale-125' : ''
+                  }`} />
+                  <span className="text-[14px] font-bold tracking-tight">Standard</span>
+                  <FiChevronDown className={`text-xs transition-transform duration-300 ml-0.5 ${
+                    isStandardHovered ? 'rotate-180 text-[#ccff00]' : 'text-zinc-400'
+                  }`} />
+                </div>
+
+                {/* Item 2: Special */}
+                <Link 
+                  to="/special-projects" 
+                  onMouseEnter={() => setIsStandardHovered(false)}
+                  className="flex flex-1 items-center justify-center gap-2.5 px-4 py-3 hover:bg-zinc-800/50 rounded-xl transition-colors group/item"
+                >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.5)] group-hover/item:scale-125 transition-transform" />
-                  <span className="text-[14px] font-bold text-white tracking-tight">Active</span>
-                </Link>
-                {/* Item 2: Ongoing */}
-                <Link to="/ongoing-projects" className="flex flex-1 items-center gap-3 px-4 py-3 hover:bg-zinc-800/50 rounded-xl transition-colors group/item">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.5)] group-hover/item:scale-125 transition-transform" />
-                  <span className="text-[14px] font-bold text-white tracking-tight">Ongoing</span>
+                  <span className="text-[14px] font-bold text-white tracking-tight">Special</span>
                 </Link>
 
-                {/* Item 3: Completed */}
-                <Link to="/completed-projects" className="flex flex-1 items-center gap-3 px-4 py-3 hover:bg-zinc-800/50 rounded-xl transition-colors group/item">
+                {/* Item 3: Exclusive */}
+                <Link 
+                  to="/exclusive-projects" 
+                  onMouseEnter={() => setIsStandardHovered(false)}
+                  className="flex flex-1 items-center justify-center gap-2.5 px-4 py-3 hover:bg-zinc-800/50 rounded-xl transition-colors group/item"
+                >
                   <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.5)] group-hover/item:scale-125 transition-transform" />
-                  <span className="text-[14px] font-bold text-white tracking-tight">Completed</span>
+                  <span className="text-[14px] font-bold text-white tracking-tight">Exclusive</span>
                 </Link>
               </div>
+
+              {/* Tier 2: Attached Seamless Bottom Shelf for Standard Sublinks */}
+              <div 
+                onMouseEnter={() => setIsStandardHovered(true)}
+                className={`transition-all duration-300 ease-in-out border-t border-white/10 bg-zinc-950/80 ${
+                  isStandardHovered 
+                    ? 'max-h-24 opacity-100 py-3 px-6' 
+                    : 'max-h-0 opacity-0 py-0 px-6 pointer-events-none'
+                }`}
+              >
+                <div className="flex flex-row items-center justify-between gap-2">
+                  <Link 
+                    to="/active-projects" 
+                    className="flex flex-1 items-center justify-center gap-2.5 px-4 py-2 hover:bg-zinc-900 rounded-xl transition-all group/sub"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.6)] group-hover/sub:scale-125 transition-transform" />
+                    <span className="text-[13px] font-bold text-zinc-300 group-hover/sub:text-[#ccff00] tracking-tight transition-colors">Active</span>
+                  </Link>
+
+                  <Link 
+                    to="/ongoing-projects" 
+                    className="flex flex-1 items-center justify-center gap-2.5 px-4 py-2 hover:bg-zinc-900 rounded-xl transition-all group/sub"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.6)] group-hover/sub:scale-125 transition-transform" />
+                    <span className="text-[13px] font-bold text-zinc-300 group-hover/sub:text-[#ccff00] tracking-tight transition-colors">Ongoing</span>
+                  </Link>
+
+                  <Link 
+                    to="/completed-projects" 
+                    className="flex flex-1 items-center justify-center gap-2.5 px-4 py-2 hover:bg-zinc-900 rounded-xl transition-all group/sub"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00] shadow-[0_0_8px_rgba(204,255,0,0.6)] group-hover/sub:scale-125 transition-transform" />
+                    <span className="text-[13px] font-bold text-zinc-300 group-hover/sub:text-[#ccff00] tracking-tight transition-colors">Completed</span>
+                  </Link>
+                </div>
+              </div>
+
             </div>
           </div>
 
@@ -308,39 +371,97 @@ export default function Navbar() {
               </div>
 
               {/* Categorized Projects */}
-              <div className={`flex flex-col gap-6 transition-all duration-700 delay-[350ms] ${isOpen ? 'translate-x-0 opacity-100 blur-0' : 'translate-x-10 opacity-0 blur-md'
+              <div className={`flex flex-col gap-4 transition-all duration-700 delay-[350ms] ${isOpen ? 'translate-x-0 opacity-100 blur-0' : 'translate-x-10 opacity-0 blur-md'
                 }`}>
                 <div className="flex items-center gap-4">
                   <div className="w-6 h-px bg-[#ccff00]/30" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600">Investments</span>
+                  <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600">Projects</span>
                 </div>
 
-                <div className="flex flex-col relative pl-4">
-                  {/* Vertical connecting line */}
-                  <div className="absolute left-[7px] top-2 bottom-6 w-px bg-white/5" />
-
-                  {[
-                    { name: 'Active Projects', href: '#active', icon: <FiActivity /> },
-                    { name: 'Ongoing Projects', href: '#ongoing', icon: <FiRefreshCw /> },
-                    { name: 'Completed Projects', href: '#completed', icon: <FiCheckCircle /> }
-                  ].map((item, i) => (
-                    <a
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setIsOpen(false)}
-                      style={{ transitionDelay: `${450 + i * 50}ms` }}
-                      className={`group/item flex items-center justify-between py-3 transition-all duration-700 ${isOpen ? 'translate-x-0 opacity-100' : 'translate-x-10 opacity-0'
-                        }`}
+                <div className="flex flex-col gap-2.5">
+                  {/* Standard Projects Collapsible */}
+                  <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-3 flex flex-col gap-2">
+                    <button
+                      onClick={() => setIsMobileStandardOpen(!isMobileStandardOpen)}
+                      className="flex items-center justify-between py-1 px-1 text-white font-bold text-sm w-full text-left"
                     >
-                      <div className="flex items-center gap-5 relative">
-                        <div className="w-3.5 h-3.5 rounded-full bg-zinc-900 border border-white/10 flex items-center justify-center relative z-10 group-hover/item:border-[#ccff00] transition-colors">
-                          <div className="w-1 h-1 rounded-full bg-[#ccff00] opacity-0 group-hover/item:opacity-100 transition-opacity" />
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center text-[#ccff00]">
+                          <FiLayers className="text-sm" />
                         </div>
-                        <span className="text-sm font-bold text-zinc-500 group-hover/item:text-white transition-colors tracking-tight">{item.name}</span>
+                        <span className="tracking-tight">Standard Projects</span>
                       </div>
-                      <span className="text-[10px] font-black text-[#ccff00]/20 group-hover/item:text-[#ccff00] transition-colors mr-2">→</span>
-                    </a>
-                  ))}
+                      <FiChevronDown className={`text-zinc-500 transition-transform duration-300 ${isMobileStandardOpen ? 'rotate-180 text-[#ccff00]' : ''}`} />
+                    </button>
+
+                    {isMobileStandardOpen && (
+                      <div className="flex flex-col gap-1 pl-10 pr-2 pt-2 border-t border-white/5">
+                        <Link
+                          to="/active-projects"
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center justify-between py-2 text-zinc-400 hover:text-white transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#ccff00]" />
+                            <span className="text-xs font-bold">Active Projects</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-600">→</span>
+                        </Link>
+                        <Link
+                          to="/ongoing-projects"
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center justify-between py-2 text-zinc-400 hover:text-white transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                            <span className="text-xs font-bold">Ongoing Projects</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-600">→</span>
+                        </Link>
+                        <Link
+                          to="/completed-projects"
+                          onClick={() => setIsOpen(false)}
+                          className="flex items-center justify-between py-2 text-zinc-400 hover:text-white transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
+                            <span className="text-xs font-bold">Completed Projects</span>
+                          </div>
+                          <span className="text-[10px] text-zinc-600">→</span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Special Projects */}
+                  <Link
+                    to="/special-projects"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-between p-3.5 bg-white/[0.03] border border-white/5 hover:border-purple-500/30 rounded-2xl transition-colors group/item"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center text-purple-400">
+                        <FiZap className="text-sm" />
+                      </div>
+                      <span className="text-sm font-bold text-white group-hover/item:text-[#ccff00] transition-colors tracking-tight">Special Projects</span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-purple-300 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded-md">Special</span>
+                  </Link>
+
+                  {/* Exclusive Projects */}
+                  <Link
+                    to="/exclusive-projects"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-between p-3.5 bg-white/[0.03] border border-white/5 hover:border-amber-500/30 rounded-2xl transition-colors group/item"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-white/10 flex items-center justify-center text-amber-400">
+                        <FiAward className="text-sm" />
+                      </div>
+                      <span className="text-sm font-bold text-white group-hover/item:text-[#ccff00] transition-colors tracking-tight">Exclusive Projects</span>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">VIP</span>
+                  </Link>
                 </div>
               </div>
             </div>

@@ -26,7 +26,7 @@ export default function CompletedProjects() {
                 image: mainImage,
                 totalReturn: p.roi.toString().includes('%') ? p.roi : `${p.roi}%`,
                 duration: `${p.duration} Months`,
-                finalValuation: `₹${(parseFloat(p.targetAmount) * 1.2).toLocaleString()}` // Placeholder
+                finalValuation: `₹\u2009${(parseFloat(p.targetAmount) * 1.2).toLocaleString()}` // Placeholder
              }
           })
           setProjects(mapped)

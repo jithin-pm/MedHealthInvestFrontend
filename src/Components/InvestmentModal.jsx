@@ -31,11 +31,11 @@ const InvestmentModal = ({ isOpen, onClose, onConfirm, projectTitle, projectCate
   const handleConfirm = () => {
     const val = parseFloat(amount);
     if (!val || val < minAmount) {
-      setError(`Minimum investment is ₹${minAmount.toLocaleString()}`);
+      setError(`Minimum investment is ₹\u2009${minAmount.toLocaleString()}`);
       return;
     }
     if (val > remainingBalance) {
-      setError(`Maximum allowable investment is ₹${remainingBalance.toLocaleString()}`);
+      setError(`Maximum allowable investment is ₹\u2009${remainingBalance.toLocaleString()}`);
       return;
     }
     onConfirm(val);
@@ -86,7 +86,7 @@ const InvestmentModal = ({ isOpen, onClose, onConfirm, projectTitle, projectCate
                         setError('');
                       }
                     }}
-                    placeholder={isExclusive ? '' : `Min: ₹${minAmount.toLocaleString()}`}
+                    placeholder={isExclusive ? '' : `Min: ₹\u2009${minAmount.toLocaleString()}`}
                     className={`w-full bg-transparent border-b-2 border-zinc-100 py-4 pl-8 text-4xl font-black text-zinc-900 outline-none focus:border-zinc-900 transition-colors placeholder:text-zinc-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isExclusive ? 'cursor-not-allowed opacity-80' : ''}`}
                  />
                </div>

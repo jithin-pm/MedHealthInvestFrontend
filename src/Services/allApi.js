@@ -1,9 +1,14 @@
-import { commonApi } from "./CommonApi";
+﻿import { commonApi } from "./CommonApi";
 import { BASE_URL } from "./baseUrl";
 
 // User Registration
 export const registerUserApi = async (data) => {
     return await commonApi("POST", "/api/auth/register", data, "");
+};
+
+// Verify Registration OTP
+export const verifyRegistrationOtpApi = async (data) => {
+    return await commonApi("POST", "/api/auth/verify-registration-otp", data, "");
 };
 
 // User Login
@@ -22,6 +27,10 @@ export const forgotPasswordApi = async (data) => {
 };
 
 // Reset Password
+export const updateProfileApi = async (data) => {
+    return await commonApi("PUT", "/api/auth/update-profile", data, "");
+};
+
 export const resetPasswordApi = async (data) => {
     return await commonApi("POST", "/api/auth/reset-password", data, "");
 };

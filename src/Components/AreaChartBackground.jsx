@@ -8,14 +8,14 @@ export default function AreaChartBackground({ className = "" }) {
   // Monthly portfolio growth data points (Jan → Jul)
   // viewBox: 0 0 1000 400 — higher Y = lower on screen
   const dataPoints = [
-    { x: 0,    y: 280 }, // Jan  — ₹1.0L
-    { x: 143,  y: 250 }, // Feb  — ₹1.25L
-    { x: 286,  y: 230 }, // Mar  — ₹1.5L
-    { x: 429,  y: 195 }, // Apr  — ₹1.8L
-    { x: 571,  y: 160 }, // May  — ₹2.1L
-    { x: 714,  y: 110 }, // Jun  — ₹2.6L ← peak/active
-    { x: 857,  y: 130 }, // Jul  — ₹2.4L
-    { x: 1000, y: 95  }, // Aug  — ₹2.75L
+    { x: 0,    y: 280 }, // Jan  — ₹ 1.0L
+    { x: 143,  y: 250 }, // Feb  — ₹ 1.25L
+    { x: 286,  y: 230 }, // Mar  — ₹ 1.5L
+    { x: 429,  y: 195 }, // Apr  — ₹ 1.8L
+    { x: 571,  y: 160 }, // May  — ₹ 2.1L
+    { x: 714,  y: 110 }, // Jun  — ₹ 2.6L ← peak/active
+    { x: 857,  y: 130 }, // Jul  — ₹ 2.4L
+    { x: 1000, y: 95  }, // Aug  — ₹ 2.75L
   ];
 
   const pathData = `M${dataPoints.map(p => `${p.x},${p.y}`).join(' L')}`;
@@ -36,10 +36,10 @@ export default function AreaChartBackground({ className = "" }) {
   ];
 
   const yLabels = [
-    { label: '₹3L' },
-    { label: '₹2L' },
-    { label: '₹1L' },
-    { label: '₹0'  },
+    { label: '₹ 3L' },
+    { label: '₹ 2L' },
+    { label: '₹ 1L' },
+    { label: '₹ 0'  },
   ];
 
   return (
