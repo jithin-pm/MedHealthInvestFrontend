@@ -1,18 +1,34 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import AreaChartBackground from '../../Components/AreaChartBackground';
 import Auth3DBackground from '../../Components/Auth3DBackground';
 import AuthForm from './AuthForm';
 import Logo from '../../Components/Logo';
 
 export default function Auth() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    try {
+      const userStr = localStorage.getItem('medhealthinvestuser');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        if (user && user.accessToken) {
+          navigate('/', { replace: true });
+        }
+      }
+    } catch (e) {
+      // ignore JSON parse error
+    }
+  }, [navigate]);
+
   return (
     <div className="w-full min-h-screen bg-black flex flex-col md:flex-row overflow-hidden relative">
-      
+
       {/* ── Background Visualization (Full screen on mobile, left half on desktop) ── */}
       <div className="absolute inset-0 md:relative md:w-1/2 md:h-screen flex items-center justify-center border-b md:border-b-0 md:border-r border-white/10 z-0 md:z-10">
         <AreaChartBackground className="opacity-100" />
-        
+
         {/* Vignette for left side */}
         <div className="absolute inset-0 pointer-events-none"
           style={{
@@ -28,7 +44,7 @@ export default function Auth() {
         {/* Content Overlay (Desktop only) */}
         <div className="absolute z-10 p-12 bottom-64 left-0 text-left max-w-2xl hidden md:block">
           <h2 className="text-5xl lg:text-6xl font-black text-white leading-none tracking-tighter mb-6">
-            Invest Once,<br/>
+            Invest Once,<br />
             <span className="font-['Playfair_Display'] italic font-normal text-white/70">Earn Every Month.</span>
           </h2>
           <p className="text-white/50 text-sm font-medium leading-relaxed mt-6 w-full pr-10">

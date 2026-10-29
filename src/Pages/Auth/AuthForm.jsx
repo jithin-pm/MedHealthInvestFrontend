@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { FiArrowRight, FiCheck, FiChevronDown, FiSearch, FiEye, FiEyeOff, FiLoader } from 'react-icons/fi';
 import { registerUserApi, verifyRegistrationOtpApi, loginUserApi, verifyLoginOtpApi, forgotPasswordApi, resetPasswordApi } from '../../Services/allApi';
 import { showAlert } from '../../Utils/alert';
@@ -21,7 +22,9 @@ const countries = [
 ];
 
 export default function AuthForm() {
-  const [step, setStep] = useState('email'); // 'email', 'otp', 'register'
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode');
+  const [step, setStep] = useState(initialMode === 'register' ? 'register' : 'email'); // 'email', 'otp', 'register'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [tempToken, setTempToken] = useState('');
@@ -63,7 +66,12 @@ export default function AuthForm() {
       localStorage.removeItem('loginLockoutEndTime');
       return null;
     }
-    return localStorage.getItem('loginLockoutEndTime') || null;
+    const saved = localStorage.getItem('loginLockoutEndTime');
+    if (saved && parseInt(saved, 10) <= Date.now()) {
+      localStorage.removeItem('loginLockoutEndTime');
+      return null;
+    }
+    return saved || null;
   });
   const [countdownStr, setCountdownStr] = useState('');
   const [otpTimer, setOtpTimer] = useState(0);
@@ -78,6 +86,44 @@ export default function AuthForm() {
       setLockoutEndTime(null);
     }
   }, []);
+
+  const switchToRegister = () => {
+    setFormData({
+      name: '',
+      email: '',
+      gender: '',
+      phone: '',
+      password: '',
+      confirmPassword: ''
+    });
+    setPasswordErrorMsg(null);
+    setAttemptsMessage(null);
+    setStep('register');
+  };
+
+  const switchToLogin = () => {
+    setFormData({
+      name: '',
+      email: '',
+      gender: '',
+      phone: '',
+      password: '',
+      confirmPassword: ''
+    });
+    setEmail('');
+    setPassword('');
+    setAttemptsMessage(null);
+    setStep('email');
+  };
+
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'register') {
+      switchToRegister();
+    } else if (mode === 'login') {
+      switchToLogin();
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -220,6 +266,8 @@ export default function AuthForm() {
     try {
       const response = await loginUserApi({ email, password });
       if (response.status === 200) {
+        localStorage.removeItem('loginLockoutEndTime');
+        setLockoutEndTime(null);
         if (response.data.requiresOtp) {
           setTempToken(response.data.tempToken);
           setMobileEnding(response.data.mobileEnding);
@@ -252,8 +300,10 @@ export default function AuthForm() {
       // Clear password input on any failure
       setPassword('');
 
-      if (!isDev && errorMessage.toLowerCase().includes('locked')) {
-        let hours = 24;
+      const isLocked = error.response?.data?.isLocked || (error.response?.status === 403 && !isInactive);
+
+      if (isLocked) {
+        let hours = error.response?.data?.remainingHours || 24;
         const match = errorMessage.match(/(\d+)\s*hour/i);
         if (match) hours = parseInt(match[1], 10);
 
@@ -262,6 +312,8 @@ export default function AuthForm() {
         localStorage.setItem('loginLockoutEndTime', endTime.toString());
         setAttemptsMessage(null);
       } else {
+        localStorage.removeItem('loginLockoutEndTime');
+        setLockoutEndTime(null);
         setAttemptsMessage(errorMessage);
       }
     } finally {
@@ -604,829 +656,847 @@ export default function AuthForm() {
       <div className="relative z-10 w-full">
         {/* Email Step */}
         {step === 'email' && (
-          <form onSubmit={submitEmail} className="space-y-2 animate-fade-in-up">
+            <form onSubmit={submitEmail} className="space-y-2 animate-fade-in-up" autoComplete="on">
 
-            {/* Floating Label Input: Email */}
-            <div className="relative group">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                id="email"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
-                placeholder=" "
-                required
-              />
-              <label
-                htmlFor="email"
-                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-              >
-                Email Address
-              </label>
-            </div>
-
-            {attemptsMessage && !lockoutEndTime && (
-              <div className="text-red-500 text-[11px] font-medium animate-pulse mb-1 mt-4">{attemptsMessage}</div>
-            )}
-            {lockoutEndTime && (
-              <div className="text-red-600 text-[11px] font-bold mb-1 mt-4">
-                Account locked. Try again in {countdownStr}
-              </div>
-            )}
-
-            {/* Floating Label Input: Password */}
-            <div className="relative group">
-              <input
-                type={showLoginPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                id="password"
-                disabled={!!lockoutEndTime}
-                className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium ${lockoutEndTime ? 'text-gray-400 cursor-not-allowed bg-transparent' : 'text-black bg-transparent'} border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10`}
-                placeholder=" "
-                required
-              />
-              <label
-                htmlFor="password"
-                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-              >
-                Password
-              </label>
-              <button
-                type="button"
-                onClick={() => setShowLoginPassword(!showLoginPassword)}
-                className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
-              >
-                {showLoginPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
-              </button>
-            </div>
-
-            <div className="flex justify-end mt-2">
-              <button type="button" onClick={() => setStep('forgot-email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
-                Forgot password?
-              </button>
-            </div>
-
-            <button
-              type="submit"
-              disabled={!!lockoutEndTime || isGeneratingOtp}
-              className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${lockoutEndTime
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : isGeneratingOtp
-                  ? 'bg-neutral-800 text-white/90 cursor-wait'
-                  : 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]'
-                }`}
-            >
-              {isGeneratingOtp ? (
-                <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
-                  <FiLoader className="text-sm animate-spin" />
-                  <span className="tracking-[0.2em]">Generating OTP...</span>
-                </div>
-              ) : (
-                <>
-                  <span>Continue</span>
-                  <FiArrowRight className="text-base" />
-                </>
-              )}
-            </button>
-
-            <div className="pt-4 mt-2 border-t border-gray-100">
-              <button type="button" onClick={() => setStep('register')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold flex items-center gap-2 group">
-                New Investor?
-                <span className="text-black font-black uppercase inline-block relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-px after:bottom-0 after:left-0 after:bg-black after:origin-bottom-right after:transition-transform after:duration-300 group-hover:after:scale-x-100 group-hover:after:origin-bottom-left">
-                  Create Account
-                </span>
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* OTP Step */}
-        {step === 'otp' && (
-          <form onSubmit={submitOtp} className="space-y-8 animate-fade-in-up">
-            <div className="flex items-center justify-center gap-3.5 my-6">
-              {otp.map((digit, idx) => (
-                <div key={idx} className="relative">
-                  <input
-                    ref={(el) => (otpRefs.current[idx] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    onPaste={handleOtpPaste}
-                    className={`w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl sm:text-3xl font-semibold rounded-xl border transition-all duration-200 outline-none select-none ${digit
-                      ? 'border-neutral-900 bg-white text-neutral-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]'
-                      : 'border-neutral-200 bg-neutral-50/70 text-neutral-900 hover:border-neutral-300 focus:bg-white focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5'
-                      }`}
-                    required
-                  />
-                  {!digit && (
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-neutral-300 text-base font-light select-none">
-                      —
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {otpTimer > 0 ? (
-              <div className="text-center mt-2">
-                <span className="text-[12px] text-neutral-400 font-normal">
-                  Code expires in <span className="font-mono text-neutral-800 font-medium tabular-nums ml-1">
-                    {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
-                  </span>
-                </span>
-              </div>
-            ) : (
-              <div className="text-center flex items-center justify-center gap-2 text-[13px] mt-2 animate-fade-in">
-                <span className="text-neutral-400 font-normal">Code expired.</span>
-                <button
-                  type="button"
-                  disabled={isGeneratingOtp}
-                  onClick={handleResendOtp}
-                  className={`text-neutral-900 font-semibold underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900 transition-colors ${isGeneratingOtp ? 'opacity-50 cursor-wait' : ''
-                    }`}
-                >
-                  {isGeneratingOtp ? 'Requesting new code...' : 'Request a new code'}
-                </button>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isVerifyingOtp}
-              className={`w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isVerifyingOtp ? 'bg-neutral-800 text-white/90 cursor-wait' : 'hover:bg-gray-800 hover:tracking-[0.25em]'
-                }`}
-            >
-              {isVerifyingOtp ? (
-                <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
-                  <FiLoader className="text-sm animate-spin" />
-                  <span className="tracking-[0.2em]">Authenticating...</span>
-                </div>
-              ) : (
-                <>
-                  <span>Authenticate</span>
-                  <FiCheck className="text-base" />
-                </>
-              )}
-            </button>
-
-            <div className="pt-2">
-              <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
-                ← Back to Email
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Register Step */}
-        {step === 'register' && (
-          <form onSubmit={submitRegistration} className="space-y-2 animate-fade-in-up">
-
-            <div className="relative group">
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                id="name"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
-                placeholder=" "
-                required
-              />
-              <label
-                htmlFor="name"
-                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-              >
-                Full Name
-              </label>
-            </div>
-
-            <div className="relative group">
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                id="reg-email"
-                className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
-                placeholder=" "
-                required
-              />
-              <label
-                htmlFor="reg-email"
-                className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-              >
-                Email Address
-              </label>
-            </div>
-
-            {/* Phone Number and Gender in a single row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* Phone Input with Country Code */}
-              <div className="relative group" ref={countryRef}>
-                <div className="flex items-end gap-2.5 transition-colors group-focus-within:border-black">
-                  {/* Country Selector */}
-                  <div className="relative border-b border-gray-300 min-w-[78px] shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setIsCountryOpen(!isCountryOpen)}
-                      className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <img
-                          src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`}
-                          alt=""
-                          className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm mb-0.5"
-                        />
-                        <span className="text-[14px] font-medium text-black">{selectedCountry.code}</span>
-                      </div>
-                      <FiChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isCountryOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {/* Country Dropdown */}
-                    {isCountryOpen && (
-                      <div className="absolute top-full left-0 w-[260px] mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] z-[60] animate-fade-in-up-short overflow-hidden">
-                        <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
-                          <FiSearch className="text-gray-400 text-xs" />
-                          <input
-                            type="text"
-                            placeholder="Search country..."
-                            value={countrySearch}
-                            onChange={(e) => setCountrySearch(e.target.value)}
-                            className="w-full text-[12px] text-black bg-transparent border-0 focus:ring-0 outline-none placeholder:text-gray-400"
-                            autoFocus
-                          />
-                        </div>
-                        <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
-                          {countries
-                            .filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
-                            .map((c) => (
-                              <button
-                                key={c.name}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedCountry(c);
-                                  setIsCountryOpen(false);
-                                  setCountrySearch('');
-                                }}
-                                className="w-full text-left px-4 py-3 text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <img
-                                    src={`https://flagcdn.com/w40/${c.iso}.png`}
-                                    alt=""
-                                    className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm"
-                                  />
-                                  <span className="truncate max-w-[140px]">{c.name}</span>
-                                </div>
-                                <span className="text-gray-400 text-[11px] font-normal">{c.code}</span>
-                              </button>
-                            ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Phone Input */}
-                  <div className="relative flex-1 min-w-0">
-                    <input
-                      type="tel"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      maxLength={selectedCountry.code === '+91' ? 10 : 15}
-                      value={formData.phone}
-                      onKeyDown={handlePhoneKeyDown}
-                      onChange={(e) => {
-                        const maxLen = selectedCountry.code === '+91' ? 10 : 15;
-                        const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, maxLen);
-                        setFormData({ ...formData, phone: digitsOnly });
-                      }}
-                      id="phone"
-                      className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
-                      placeholder=" "
-                      required
-                    />
-                    <label
-                      htmlFor="phone"
-                      className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-                    >
-                      Phone Number
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Gender Input */}
-              <div className="relative group" ref={genderRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsGenderOpen(!isGenderOpen)}
-                  className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium bg-transparent border-0 border-b border-gray-300 transition-colors flex items-center justify-between focus:outline-none focus:border-black ${formData.gender ? 'text-black' : 'text-gray-400'}`}
-                >
-                  <span className={!formData.gender && !isGenderOpen ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}>
-                    {formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : 'Select Gender...'}
-                  </span>
-                  <FiChevronDown className={`text-gray-400 text-[14px] transition-transform duration-300 ${isGenderOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                {/* Custom Dropdown Menu */}
-                {isGenderOpen && (
-                  <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] py-2 z-50 animate-fade-in-up-short">
-                    {['male', 'female', 'other'].map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, gender: option });
-                          setIsGenderOpen(false);
-                        }}
-                        className="w-full text-left px-5 py-3 text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
-                      >
-                        <span>{option.charAt(0).toUpperCase() + option.slice(1)}</span>
-                        {formData.gender === option && <FiCheck className="text-black text-xs" />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <label
-                  className={`absolute text-[10px] duration-300 transform origin-left tracking-[0.2em] uppercase font-semibold z-10 pointer-events-none top-5 
-                    ${(formData.gender || isGenderOpen) ? '-translate-y-4 text-gray-800' : 'translate-y-0 text-gray-400'}`}
-                >
-                  Gender
-                </label>
-              </div>
-            </div>
-
-            {/* Password and Confirm Password in a single row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* Password */}
+              {/* Floating Label Input: Email */}
               <div className="relative group">
                 <input
-                  type={showRegPassword ? "text" : "password"}
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  id="reg-password"
-                  className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+                  type="email"
+                  name="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  id="email"
+                  className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
                   placeholder=" "
                   required
                 />
                 <label
-                  htmlFor="reg-password"
+                  htmlFor="email"
+                  className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                >
+                  Email Address
+                </label>
+              </div>
+
+              {attemptsMessage && !lockoutEndTime && (
+                <div className="text-red-500 text-[11px] font-medium animate-pulse mb-1 mt-4">{attemptsMessage}</div>
+              )}
+              {lockoutEndTime && (
+                <div className="text-red-600 text-[11px] font-bold mb-1 mt-4">
+                  Account locked. Try again in {countdownStr}
+                </div>
+              )}
+
+              {/* Floating Label Input: Password */}
+              <div className="relative group">
+                <input
+                  type={showLoginPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  id="password"
+                  disabled={!!lockoutEndTime}
+                  className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium ${lockoutEndTime ? 'text-gray-400 cursor-not-allowed bg-transparent' : 'text-black bg-transparent'} border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10`}
+                  placeholder=" "
+                  required
+                />
+                <label
+                  htmlFor="password"
                   className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
                 >
                   Password
                 </label>
                 <button
                   type="button"
-                  onClick={() => setShowRegPassword(!showRegPassword)}
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
                   className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
                 >
-                  {showRegPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+                  {showLoginPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
                 </button>
               </div>
 
-              {/* Confirm Password */}
-              <div className="relative group">
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  id="confirmPassword"
-                  disabled={!!validatePassword(formData.password)}
-                  className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10 ${!!validatePassword(formData.password) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  placeholder=" "
-                  required
-                />
-                <label
-                  htmlFor="confirmPassword"
-                  className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-                >
-                  Confirm Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
-                >
-                  {showConfirmPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+              <div className="flex justify-end mt-2">
+                <button type="button" onClick={() => setStep('forgot-email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                  Forgot password?
                 </button>
               </div>
-            </div>
 
-            {renderPasswordRequirements(formData.password)}
-
-            <button
-              type="submit"
-              disabled={isSubmittingReg || !!validatePassword(formData.password) || formData.password !== formData.confirmPassword}
-              className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${(!validatePassword(formData.password) && formData.password === formData.confirmPassword && !isSubmittingReg) ? 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              {isSubmittingReg ? (
-                <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
-                  <FiLoader className="text-sm animate-spin" />
-                  <span className="tracking-[0.2em]">Sending OTP...</span>
-                </div>
-              ) : (
-                <>
-                  <span>Create Account</span>
-                  <FiArrowRight className="text-base" />
-                </>
-              )}
-            </button>
-
-            <div className="pt-4 mt-2 border-t border-gray-100">
-              <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold group flex items-center gap-2">
-                Already an investor?
-                <span className="text-black font-black uppercase inline-block relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-px after:bottom-0 after:left-0 after:bg-black after:origin-bottom-right after:transition-transform after:duration-300 group-hover:after:scale-x-100 group-hover:after:origin-bottom-left">
-                  Login Here
-                </span>
+              <button
+                type="submit"
+                disabled={!!lockoutEndTime || isGeneratingOtp}
+                className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${lockoutEndTime
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : isGeneratingOtp
+                    ? 'bg-neutral-800 text-white/90 cursor-wait'
+                    : 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]'
+                  }`}
+              >
+                {isGeneratingOtp ? (
+                  <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
+                    <FiLoader className="text-sm animate-spin" />
+                    <span className="tracking-[0.2em]">Generating OTP...</span>
+                  </div>
+                ) : (
+                  <>
+                    <span>Continue</span>
+                    <FiArrowRight className="text-base" />
+                  </>
+                )}
               </button>
-            </div>
-          </form>
+
+              <div className="pt-4 mt-2 border-t border-gray-100">
+                  <button type="button" onClick={switchToRegister} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold flex items-center gap-2 group">
+                    New Investor?
+                    <span className="text-black font-black uppercase inline-block relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-px after:bottom-0 after:left-0 after:bg-black after:origin-bottom-right after:transition-transform after:duration-300 group-hover:after:scale-x-100 group-hover:after:origin-bottom-left">
+                      Create Account
+                    </span>
+                  </button>
+              </div>
+            </form>
         )}
 
-        {/* Register OTP Step */}
-        {step === 'register-otp' && (
-          <form onSubmit={submitRegisterOtp} className="space-y-8 animate-fade-in-up">
-            <div className="flex items-center justify-center gap-3.5 my-6">
-              {otp.map((digit, idx) => (
-                <div key={idx} className="relative">
-                  <input
-                    ref={(el) => (otpRefs.current[idx] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    onPaste={handleOtpPaste}
-                    className={`w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl sm:text-3xl font-semibold rounded-xl border transition-all duration-200 outline-none select-none ${digit
-                      ? 'border-neutral-900 bg-white text-neutral-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]'
-                      : 'border-neutral-200 bg-neutral-50/70 text-neutral-900 hover:border-neutral-300 focus:bg-white focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5'
-                      }`}
-                    required
-                  />
-                  {!digit && (
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-neutral-300 text-base font-light select-none">
-                      -
-                    </span>
-                  )}
+            {/* OTP Step */}
+            {step === 'otp' && (
+              <form onSubmit={submitOtp} className="space-y-8 animate-fade-in-up">
+                <div className="flex items-center justify-center gap-3.5 my-6">
+                  {otp.map((digit, idx) => (
+                    <div key={idx} className="relative">
+                      <input
+                        ref={(el) => (otpRefs.current[idx] = el)}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        value={digit}
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        className={`w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl sm:text-3xl font-semibold rounded-xl border transition-all duration-200 outline-none select-none ${digit
+                          ? 'border-neutral-900 bg-white text-neutral-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]'
+                          : 'border-neutral-200 bg-neutral-50/70 text-neutral-900 hover:border-neutral-300 focus:bg-white focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5'
+                          }`}
+                        required
+                      />
+                      {!digit && (
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-neutral-300 text-base font-light select-none">
+                          —
+                        </span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            {otpTimer > 0 ? (
-              <div className="text-center mt-2">
-                <span className="text-[12px] text-neutral-400 font-normal">
-                  Code expires in <span className="font-mono text-neutral-800 font-medium tabular-nums ml-1">
-                    {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
-                  </span>
-                </span>
-              </div>
-            ) : (
-              <div className="text-center mt-2">
+                {otpTimer > 0 ? (
+                  <div className="text-center mt-2">
+                    <span className="text-[12px] text-neutral-400 font-normal">
+                      Code expires in <span className="font-mono text-neutral-800 font-medium tabular-nums ml-1">
+                        {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
+                      </span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-center flex items-center justify-center gap-2 text-[13px] mt-2 animate-fade-in">
+                    <span className="text-neutral-400 font-normal">Code expired.</span>
+                    <button
+                      type="button"
+                      disabled={isGeneratingOtp}
+                      onClick={handleResendOtp}
+                      className={`text-neutral-900 font-semibold underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900 transition-colors ${isGeneratingOtp ? 'opacity-50 cursor-wait' : ''
+                        }`}
+                    >
+                      {isGeneratingOtp ? 'Requesting new code...' : 'Request a new code'}
+                    </button>
+                  </div>
+                )}
+
                 <button
-                  type="button"
-                  disabled={isSubmittingReg}
-                  onClick={handleResendRegisterOtp}
-                  className={`text-neutral-900 font-semibold underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900 transition-colors ${isSubmittingReg ? 'opacity-50 cursor-wait' : ''
+                  type="submit"
+                  disabled={isVerifyingOtp}
+                  className={`w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isVerifyingOtp ? 'bg-neutral-800 text-white/90 cursor-wait' : 'hover:bg-gray-800 hover:tracking-[0.25em]'
                     }`}
                 >
-                  {isSubmittingReg ? 'Requesting new code...' : 'Request a new code'}
+                  {isVerifyingOtp ? (
+                    <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
+                      <FiLoader className="text-sm animate-spin" />
+                      <span className="tracking-[0.2em]">Authenticating...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <span>Authenticate</span>
+                      <FiCheck className="text-base" />
+                    </>
+                  )}
                 </button>
-              </div>
+
+                <div className="pt-2">
+                  <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                    ← Back to Email
+                  </button>
+                </div>
+              </form>
             )}
 
-            <button
-              type="submit"
-              disabled={isVerifyingRegOtp}
-              className={`w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isVerifyingRegOtp ? 'bg-neutral-800 text-white/90 cursor-wait' : 'hover:bg-gray-800 hover:tracking-[0.25em]'
-                }`}
-            >
-              {isVerifyingRegOtp ? (
-                <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
-                  <FiLoader className="text-sm animate-spin" />
-                  <span className="tracking-[0.2em]">Verifying & Registering...</span>
-                </div>
-              ) : (
-                <>
-                  <span>Verify & Create Account</span>
-                  <FiCheck className="text-base" />
-                </>
-              )}
-            </button>
+            {/* Register Step */}
+            {step === 'register' && (
+                <form onSubmit={submitRegistration} className="space-y-2 animate-fade-in-up" autoComplete="off">
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setStep('register');
-                  setOtp(['', '', '', '']);
-                }}
-                className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold flex items-center gap-1"
-              >
-                ← Back to Registration
-              </button>
-            </div>
-          </form>
-        )}
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      name="fullName"
+                      autoComplete="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      id="name"
+                      className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                      placeholder=" "
+                      required
+                    />
+                    <label
+                      htmlFor="name"
+                      className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                    >
+                      Full Name
+                    </label>
+                  </div>
 
-        {/* Forgot Password - Phone Step */}
-        {step === 'forgot-email' && (
-          <form onSubmit={submitForgotPassword} className="space-y-4 animate-fade-in-up">
-            <h3 className="text-xl font-bold mb-6 text-black tracking-wide">Reset Password</h3>
-            <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Enter your registered mobile number to receive an authorization code.</p>
+                  <div className="relative group">
+                    <input
+                      type="email"
+                      name="newEmail"
+                      autoComplete="off"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      id="reg-email"
+                      className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                      placeholder=" "
+                      required
+                    />
+                    <label
+                      htmlFor="reg-email"
+                      className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                    >
+                      Email Address
+                    </label>
+                  </div>
 
-            <div className="relative group" ref={countryRef}>
-              <div className="flex items-end gap-3 transition-colors group-focus-within:border-black">
-                {/* Country Selector */}
-                <div className="relative border-b border-gray-300 min-w-[85px]">
-                  <button
-                    type="button"
-                    onClick={() => setIsCountryOpen(!isCountryOpen)}
-                    className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
-                  >
-                    <div className="flex items-center gap-2">
-                      <img
-                        src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`}
-                        alt=""
-                        className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm mb-0.5"
-                      />
-                      <span className="text-[14px] font-medium text-black">{selectedCountry.code}</span>
-                    </div>
-                    <FiChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isCountryOpen ? 'rotate-180' : ''}`} />
-                  </button>
+                  {/* Phone Number and Gender in a single row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    {/* Phone Input with Country Code */}
+                    <div className="relative group" ref={countryRef}>
+                      <div className="flex items-end gap-2.5 transition-colors group-focus-within:border-black">
+                        {/* Country Selector */}
+                        <div className="relative border-b border-gray-300 min-w-[78px] shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setIsCountryOpen(!isCountryOpen)}
+                            className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <img
+                                src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`}
+                                alt=""
+                                className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm mb-0.5"
+                              />
+                              <span className="text-[14px] font-medium text-black">{selectedCountry.code}</span>
+                            </div>
+                            <FiChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isCountryOpen ? 'rotate-180' : ''}`} />
+                          </button>
 
-                  {/* Country Dropdown */}
-                  {isCountryOpen && (
-                    <div className="absolute top-full left-0 w-[260px] mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] z-[60] animate-fade-in-up-short overflow-hidden">
-                      <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
-                        <FiSearch className="text-gray-400 text-xs" />
-                        <input
-                          type="text"
-                          placeholder="Search country..."
-                          value={countrySearch}
-                          onChange={(e) => setCountrySearch(e.target.value)}
-                          className="w-full text-[12px] text-black bg-transparent border-0 focus:ring-0 outline-none placeholder:text-gray-400"
-                          autoFocus
-                        />
+                          {/* Country Dropdown */}
+                          {isCountryOpen && (
+                            <div className="absolute top-full left-0 w-[260px] mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] z-[60] animate-fade-in-up-short overflow-hidden">
+                              <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
+                                <FiSearch className="text-gray-400 text-xs" />
+                                <input
+                                  type="text"
+                                  placeholder="Search country..."
+                                  value={countrySearch}
+                                  onChange={(e) => setCountrySearch(e.target.value)}
+                                  className="w-full text-[12px] text-black bg-transparent border-0 focus:ring-0 outline-none placeholder:text-gray-400"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                                {countries
+                                  .filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
+                                  .map((c) => (
+                                    <button
+                                      key={c.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCountry(c);
+                                        setIsCountryOpen(false);
+                                        setCountrySearch('');
+                                      }}
+                                      className="w-full text-left px-4 py-3 text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <img
+                                          src={`https://flagcdn.com/w40/${c.iso}.png`}
+                                          alt=""
+                                          className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm"
+                                        />
+                                        <span className="truncate max-w-[140px]">{c.name}</span>
+                                      </div>
+                                      <span className="text-gray-400 text-[11px] font-normal">{c.code}</span>
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Phone Input */}
+                        <div className="relative flex-1 min-w-0">
+                          <input
+                            type="tel"
+                            name="phone"
+                            autoComplete="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={selectedCountry.code === '+91' ? 10 : 15}
+                            value={formData.phone}
+                            onKeyDown={handlePhoneKeyDown}
+                            onChange={(e) => {
+                              const maxLen = selectedCountry.code === '+91' ? 10 : 15;
+                              const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, maxLen);
+                              setFormData({ ...formData, phone: digitsOnly });
+                            }}
+                            id="phone"
+                            className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                            placeholder=" "
+                            required
+                          />
+                          <label
+                            htmlFor="phone"
+                            className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                          >
+                            Phone Number
+                          </label>
+                        </div>
                       </div>
-                      <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
-                        {countries
-                          .filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
-                          .map((c) => (
+                    </div>
+
+                    {/* Gender Input */}
+                    <div className="relative group" ref={genderRef}>
+                      <button
+                        type="button"
+                        onClick={() => setIsGenderOpen(!isGenderOpen)}
+                        className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium bg-transparent border-0 border-b border-gray-300 transition-colors flex items-center justify-between focus:outline-none focus:border-black ${formData.gender ? 'text-black' : 'text-gray-400'}`}
+                      >
+                        <span className={!formData.gender && !isGenderOpen ? 'opacity-0' : 'opacity-100 transition-opacity duration-300'}>
+                          {formData.gender ? formData.gender.charAt(0).toUpperCase() + formData.gender.slice(1) : 'Select Gender...'}
+                        </span>
+                        <FiChevronDown className={`text-gray-400 text-[14px] transition-transform duration-300 ${isGenderOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {/* Custom Dropdown Menu */}
+                      {isGenderOpen && (
+                        <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] py-2 z-50 animate-fade-in-up-short">
+                          {['male', 'female', 'other'].map((option) => (
                             <button
-                              key={c.name}
+                              key={option}
                               type="button"
                               onClick={() => {
-                                setSelectedCountry(c);
-                                setIsCountryOpen(false);
-                                setCountrySearch('');
+                                setFormData({ ...formData, gender: option });
+                                setIsGenderOpen(false);
                               }}
-                              className="w-full text-left px-4 py-3 text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
+                              className="w-full text-left px-5 py-3 text-[14px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
                             >
-                              <div className="flex items-center gap-3">
-                                <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt="" className="w-5 h-3.5 object-cover rounded-sm shadow-sm" />
-                                <span>{c.name}</span>
-                              </div>
-                              <span className="text-gray-400 font-mono text-[11px] group-hover/opt:text-gray-600">{c.code}</span>
+                              <span>{option.charAt(0).toUpperCase() + option.slice(1)}</span>
+                              {formData.gender === option && <FiCheck className="text-black text-xs" />}
                             </button>
                           ))}
+                        </div>
+                      )}
+
+                      <label
+                        className={`absolute text-[10px] duration-300 transform origin-left tracking-[0.2em] uppercase font-semibold z-10 pointer-events-none top-5 
+                    ${(formData.gender || isGenderOpen) ? '-translate-y-4 text-gray-800' : 'translate-y-0 text-gray-400'}`}
+                      >
+                        Gender
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Password and Confirm Password in a single row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                    {/* Password */}
+                    <div className="relative group">
+                      <input
+                        type={showRegPassword ? "text" : "password"}
+                        name="newPassword"
+                        autoComplete="new-password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        id="reg-password"
+                        className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+                        placeholder=" "
+                        required
+                      />
+                      <label
+                        htmlFor="reg-password"
+                        className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                      >
+                        Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+                      >
+                        {showRegPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+                      </button>
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div className="relative group">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        name="confirmPassword"
+                        autoComplete="new-password"
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        id="confirmPassword"
+                        disabled={!!validatePassword(formData.password)}
+                        className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10 ${!!validatePassword(formData.password) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                        placeholder=" "
+                        required
+                      />
+                      <label
+                        htmlFor="confirmPassword"
+                        className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                      >
+                        Confirm Password
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+                      >
+                        {showConfirmPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {renderPasswordRequirements(formData.password)}
+
+                  <button
+                    type="submit"
+                    disabled={isSubmittingReg || !!validatePassword(formData.password) || formData.password !== formData.confirmPassword}
+                    className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${(!validatePassword(formData.password) && formData.password === formData.confirmPassword && !isSubmittingReg) ? 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                  >
+                    {isSubmittingReg ? (
+                      <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
+                        <FiLoader className="text-sm animate-spin" />
+                        <span className="tracking-[0.2em]">Sending OTP...</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span>Create Account</span>
+                        <FiArrowRight className="text-base" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="pt-4 mt-2 border-t border-gray-100">
+                      <button type="button" onClick={switchToLogin} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold group flex items-center gap-2">
+                        Already an investor?
+                        <span className="text-black font-black uppercase inline-block relative after:content-[''] after:absolute after:w-full after:scale-x-0 after:h-px after:bottom-0 after:left-0 after:bg-black after:origin-bottom-right after:transition-transform after:duration-300 group-hover:after:scale-x-100 group-hover:after:origin-bottom-left">
+                          Login Here
+                        </span>
+                      </button>
+                  </div>
+                </form>
+        )}
+
+                {/* Register OTP Step */}
+                {step === 'register-otp' && (
+                  <form onSubmit={submitRegisterOtp} className="space-y-8 animate-fade-in-up">
+                    <div className="flex items-center justify-center gap-3.5 my-6">
+                      {otp.map((digit, idx) => (
+                        <div key={idx} className="relative">
+                          <input
+                            ref={(el) => (otpRefs.current[idx] = el)}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={1}
+                            value={digit}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                            onPaste={handleOtpPaste}
+                            className={`w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl sm:text-3xl font-semibold rounded-xl border transition-all duration-200 outline-none select-none ${digit
+                              ? 'border-neutral-900 bg-white text-neutral-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]'
+                              : 'border-neutral-200 bg-neutral-50/70 text-neutral-900 hover:border-neutral-300 focus:bg-white focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5'
+                              }`}
+                            required
+                          />
+                          {!digit && (
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-neutral-300 text-base font-light select-none">
+                              -
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {otpTimer > 0 ? (
+                      <div className="text-center mt-2">
+                        <span className="text-[12px] text-neutral-400 font-normal">
+                          Code expires in <span className="font-mono text-neutral-800 font-medium tabular-nums ml-1">
+                            {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
+                          </span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-center mt-2">
+                        <button
+                          type="button"
+                          disabled={isSubmittingReg}
+                          onClick={handleResendRegisterOtp}
+                          className={`text-neutral-900 font-semibold underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900 transition-colors ${isSubmittingReg ? 'opacity-50 cursor-wait' : ''
+                            }`}
+                        >
+                          {isSubmittingReg ? 'Requesting new code...' : 'Request a new code'}
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={isVerifyingRegOtp}
+                      className={`w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isVerifyingRegOtp ? 'bg-neutral-800 text-white/90 cursor-wait' : 'hover:bg-gray-800 hover:tracking-[0.25em]'
+                        }`}
+                    >
+                      {isVerifyingRegOtp ? (
+                        <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
+                          <FiLoader className="text-sm animate-spin" />
+                          <span className="tracking-[0.2em]">Verifying & Registering...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span>Verify & Create Account</span>
+                          <FiCheck className="text-base" />
+                        </>
+                      )}
+                    </button>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStep('register');
+                          setOtp(['', '', '', '']);
+                        }}
+                        className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold flex items-center gap-1"
+                      >
+                        ← Back to Registration
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Forgot Password - Phone Step */}
+                {step === 'forgot-email' && (
+                  <form onSubmit={submitForgotPassword} className="space-y-4 animate-fade-in-up">
+                    <h3 className="text-xl font-bold mb-6 text-black tracking-wide">Reset Password</h3>
+                    <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Enter your registered mobile number to receive an authorization code.</p>
+
+                    <div className="relative group" ref={countryRef}>
+                      <div className="flex items-end gap-3 transition-colors group-focus-within:border-black">
+                        {/* Country Selector */}
+                        <div className="relative border-b border-gray-300 min-w-[85px]">
+                          <button
+                            type="button"
+                            onClick={() => setIsCountryOpen(!isCountryOpen)}
+                            className="flex items-center justify-between w-full h-full pt-6 pb-2 focus:outline-none"
+                          >
+                            <div className="flex items-center gap-2">
+                              <img
+                                src={`https://flagcdn.com/w40/${selectedCountry.iso}.png`}
+                                alt=""
+                                className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm mb-0.5"
+                              />
+                              <span className="text-[14px] font-medium text-black">{selectedCountry.code}</span>
+                            </div>
+                            <FiChevronDown className={`text-gray-400 text-[10px] transition-transform duration-300 ${isCountryOpen ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {/* Country Dropdown */}
+                          {isCountryOpen && (
+                            <div className="absolute top-full left-0 w-[260px] mt-1 bg-white border border-gray-100 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.15)] z-[60] animate-fade-in-up-short overflow-hidden">
+                              <div className="p-3 border-b border-gray-50 flex items-center gap-2 bg-gray-50/50">
+                                <FiSearch className="text-gray-400 text-xs" />
+                                <input
+                                  type="text"
+                                  placeholder="Search country..."
+                                  value={countrySearch}
+                                  onChange={(e) => setCountrySearch(e.target.value)}
+                                  className="w-full text-[12px] text-black bg-transparent border-0 focus:ring-0 outline-none placeholder:text-gray-400"
+                                  autoFocus
+                                />
+                              </div>
+                              <div className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                                {countries
+                                  .filter(c => c.name.toLowerCase().includes(countrySearch.toLowerCase()) || c.code.includes(countrySearch))
+                                  .map((c) => (
+                                    <button
+                                      key={c.name}
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedCountry(c);
+                                        setIsCountryOpen(false);
+                                        setCountrySearch('');
+                                      }}
+                                      className="w-full text-left px-4 py-3 text-[13px] font-medium text-gray-600 hover:bg-gray-50 hover:text-black transition-colors flex items-center justify-between group/opt"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <img src={`https://flagcdn.com/w40/${c.iso}.png`} alt="" className="w-5 h-3.5 object-cover rounded-sm shadow-sm" />
+                                        <span>{c.name}</span>
+                                      </div>
+                                      <span className="text-gray-400 font-mono text-[11px] group-hover/opt:text-gray-600">{c.code}</span>
+                                    </button>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Phone Input */}
+                        <div className="relative flex-1">
+                          <input
+                            type="tel"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={selectedCountry.code === '+91' ? 10 : 15}
+                            value={forgotPhone}
+                            onKeyDown={handlePhoneKeyDown}
+                            onChange={(e) => {
+                              const maxLen = selectedCountry.code === '+91' ? 10 : 15;
+                              const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, maxLen);
+                              setForgotPhone(digitsOnly);
+                            }}
+                            id="forgot-phone"
+                            className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
+                            placeholder=" "
+                            required
+                          />
+                          <label
+                            htmlFor="forgot-phone"
+                            className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                          >
+                            Mobile Number
+                          </label>
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
 
-                {/* Phone Input */}
-                <div className="relative flex-1">
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={selectedCountry.code === '+91' ? 10 : 15}
-                    value={forgotPhone}
-                    onKeyDown={handlePhoneKeyDown}
-                    onChange={(e) => {
-                      const maxLen = selectedCountry.code === '+91' ? 10 : 15;
-                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, maxLen);
-                      setForgotPhone(digitsOnly);
-                    }}
-                    id="forgot-phone"
-                    className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors"
-                    placeholder=" "
-                    required
-                  />
-                  <label
-                    htmlFor="forgot-phone"
-                    className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-                  >
-                    Mobile Number
-                  </label>
-                </div>
-              </div>
-            </div>
+                    <button
+                      type="submit"
+                      disabled={isSendingForgotOtp}
+                      className={`w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isSendingForgotOtp
+                        ? 'bg-neutral-800 text-white/90 cursor-wait'
+                        : 'hover:bg-gray-800 hover:tracking-[0.25em]'
+                        }`}
+                    >
+                      {isSendingForgotOtp ? (
+                        <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
+                          <FiLoader className="text-sm animate-spin" />
+                          <span className="tracking-[0.2em]">Sending OTP...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span>Send OTP</span>
+                          <FiArrowRight className="text-base" />
+                        </>
+                      )}
+                    </button>
 
-            <button
-              type="submit"
-              disabled={isSendingForgotOtp}
-              className={`w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isSendingForgotOtp
-                ? 'bg-neutral-800 text-white/90 cursor-wait'
-                : 'hover:bg-gray-800 hover:tracking-[0.25em]'
-                }`}
-            >
-              {isSendingForgotOtp ? (
-                <div className="flex items-center justify-center gap-2.5 w-full py-0.5">
-                  <FiLoader className="text-sm animate-spin" />
-                  <span className="tracking-[0.2em]">Sending OTP...</span>
-                </div>
-              ) : (
-                <>
-                  <span>Send OTP</span>
-                  <FiArrowRight className="text-base" />
-                </>
-              )}
-            </button>
+                    <div className="pt-2">
+                      <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                        ← Back to Login
+                      </button>
+                    </div>
+                  </form>
+                )}
 
-            <div className="pt-2">
-              <button type="button" onClick={() => setStep('email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
-                ← Back to Login
-              </button>
-            </div>
-          </form>
+                {/* Why do we fall, sir? */}
+                {step === 'forgot-otp' && (
+                  <form onSubmit={submitForgotOtp} className="space-y-8 animate-fade-in-up">
+                    <h3 className="text-xl font-bold mb-2 text-black tracking-wide">Verify.</h3>
+                    <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
+                      <span className="opacity-75">Enter the 4-digit verification code sent to your registered number ending in </span>
+                      <strong className="text-black font-bold tracking-wider">**{mobileEnding}</strong>.
+                    </p>
+
+                    <div className="flex items-center justify-center gap-3.5 my-6">
+                      {otp.map((digit, idx) => (
+                        <div key={idx} className="relative">
+                          <input
+                            ref={(el) => (otpRefs.current[idx] = el)}
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={1}
+                            value={digit}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                            onPaste={handleOtpPaste}
+                            className={`w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl sm:text-3xl font-semibold rounded-xl border transition-all duration-200 outline-none select-none ${digit
+                              ? 'border-neutral-900 bg-white text-neutral-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]'
+                              : 'border-neutral-200 bg-neutral-50/70 text-neutral-900 hover:border-neutral-300 focus:bg-white focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5'
+                              }`}
+                            required
+                          />
+                          {!digit && (
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-neutral-300 text-base font-light select-none">
+                              —
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {otpTimer > 0 ? (
+                      <div className="text-center mt-2">
+                        <span className="text-[12px] text-neutral-400 font-normal">
+                          Code expires in <span className="font-mono text-neutral-800 font-medium tabular-nums ml-1">
+                            {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
+                          </span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="text-center flex items-center justify-center gap-2 text-[13px] mt-2 animate-fade-in">
+                        <span className="text-neutral-400 font-normal">Code expired.</span>
+                        <button
+                          type="button"
+                          disabled={isSendingForgotOtp}
+                          onClick={handleResendForgotOtp}
+                          className={`text-neutral-900 font-semibold underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900 transition-colors ${isSendingForgotOtp ? 'opacity-50 cursor-wait' : ''
+                            }`}
+                        >
+                          {isSendingForgotOtp ? 'Requesting new code...' : 'Request a new code'}
+                        </button>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      className="w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
+                    >
+                      <span>Continue</span>
+                      <FiArrowRight className="text-base" />
+                    </button>
+
+                    <div className="pt-2">
+                      <button type="button" onClick={() => setStep('forgot-email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                        ← Back
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Forgot Password - Reset Password Step */}
+                {step === 'forgot-reset' && (
+                    <form onSubmit={submitResetPassword} className="space-y-6 animate-fade-in-up" autoComplete="off">
+                      <h3 className="text-xl font-bold mb-6 text-black tracking-wide">New Password</h3>
+                      <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Please enter your new secure password.</p>
+
+                      {/* Password and Confirm Password in a single row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                        {/* New Password */}
+                        <div className="relative group">
+                          <input
+                            type={showResetPassword ? "text" : "password"}
+                            name="newResetPassword"
+                            autoComplete="new-password"
+                            value={resetPassword}
+                            onChange={(e) => setResetPassword(e.target.value)}
+                            id="reset-password"
+                            className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
+                            placeholder=" "
+                            required
+                          />
+                          <label
+                            htmlFor="reset-password"
+                            className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                          >
+                            New Password
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowResetPassword(!showResetPassword)}
+                            className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+                          >
+                            {showResetPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+                          </button>
+                        </div>
+
+                        {/* Confirm Password */}
+                        <div className="relative group">
+                          <input
+                            type={showConfirmResetPassword ? "text" : "password"}
+                            name="confirmResetPassword"
+                            autoComplete="new-password"
+                            value={confirmResetPassword}
+                            onChange={(e) => setConfirmResetPassword(e.target.value)}
+                            id="confirm-reset-password"
+                            disabled={!!validatePassword(resetPassword)}
+                            className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10 ${!!validatePassword(resetPassword) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            placeholder=" "
+                            required
+                          />
+                          <label
+                            htmlFor="confirm-reset-password"
+                            className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
+                          >
+                            Confirm Password
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmResetPassword(!showConfirmResetPassword)}
+                            className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
+                          >
+                            {showConfirmResetPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {renderPasswordRequirements(resetPassword)}
+
+                      {passwordErrorMsg && (
+                        <div className="text-red-500 text-[11px] font-medium animate-pulse mt-2">{passwordErrorMsg}</div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={!!validatePassword(resetPassword) || resetPassword !== confirmResetPassword}
+                        className={`w-full py-4 mt-8 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${(!validatePassword(resetPassword) && resetPassword === confirmResetPassword) ? 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+                      >
+                        <span>Reset Password</span>
+                        <FiCheck className="text-base" />
+                      </button>
+
+                      <div className="pt-2">
+                        <button type="button" onClick={() => {
+                          setStep('forgot-email');
+                          setOtp(['', '', '', '']);
+                          setResetPassword('');
+                          setConfirmResetPassword('');
+                        }} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
+                          ← Cancel
+                        </button>
+                      </div>
+                    </form>
         )}
-
-        {/* Why do we fall, sir? */}
-        {step === 'forgot-otp' && (
-          <form onSubmit={submitForgotOtp} className="space-y-8 animate-fade-in-up">
-            <h3 className="text-xl font-bold mb-2 text-black tracking-wide">Verify.</h3>
-            <p className="text-[13px] text-gray-500 font-medium leading-relaxed">
-              <span className="opacity-75">Enter the 4-digit verification code sent to your registered number ending in </span>
-              <strong className="text-black font-bold tracking-wider">**{mobileEnding}</strong>.
-            </p>
-
-            <div className="flex items-center justify-center gap-3.5 my-6">
-              {otp.map((digit, idx) => (
-                <div key={idx} className="relative">
-                  <input
-                    ref={(el) => (otpRefs.current[idx] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={1}
-                    value={digit}
-                    onFocus={(e) => e.target.select()}
-                    onChange={(e) => handleOtpChange(idx, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    onPaste={handleOtpPaste}
-                    className={`w-14 h-16 sm:w-16 sm:h-18 text-center text-2xl sm:text-3xl font-semibold rounded-xl border transition-all duration-200 outline-none select-none ${digit
-                      ? 'border-neutral-900 bg-white text-neutral-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.08)]'
-                      : 'border-neutral-200 bg-neutral-50/70 text-neutral-900 hover:border-neutral-300 focus:bg-white focus:border-neutral-900 focus:ring-4 focus:ring-neutral-900/5'
-                      }`}
-                    required
-                  />
-                  {!digit && (
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-neutral-300 text-base font-light select-none">
-                      —
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {otpTimer > 0 ? (
-              <div className="text-center mt-2">
-                <span className="text-[12px] text-neutral-400 font-normal">
-                  Code expires in <span className="font-mono text-neutral-800 font-medium tabular-nums ml-1">
-                    {Math.floor(otpTimer / 60)}:{(otpTimer % 60).toString().padStart(2, '0')}
-                  </span>
-                </span>
-              </div>
-            ) : (
-              <div className="text-center flex items-center justify-center gap-2 text-[13px] mt-2 animate-fade-in">
-                <span className="text-neutral-400 font-normal">Code expired.</span>
-                <button
-                  type="button"
-                  disabled={isSendingForgotOtp}
-                  onClick={handleResendForgotOtp}
-                  className={`text-neutral-900 font-semibold underline underline-offset-4 decoration-neutral-300 hover:decoration-neutral-900 transition-colors ${isSendingForgotOtp ? 'opacity-50 cursor-wait' : ''
-                    }`}
-                >
-                  {isSendingForgotOtp ? 'Requesting new code...' : 'Request a new code'}
-                </button>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-4 mt-8 bg-black text-white text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 hover:bg-gray-800 transition-all duration-300 hover:tracking-[0.25em]"
-            >
-              <span>Continue</span>
-              <FiArrowRight className="text-base" />
-            </button>
-
-            <div className="pt-2">
-              <button type="button" onClick={() => setStep('forgot-email')} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
-                ← Back
-              </button>
-            </div>
-          </form>
-        )}
-
-        {/* Forgot Password - Reset Password Step */}
-        {step === 'forgot-reset' && (
-          <form onSubmit={submitResetPassword} className="space-y-6 animate-fade-in-up">
-            <h3 className="text-xl font-bold mb-6 text-black tracking-wide">New Password</h3>
-            <p className="text-sm text-gray-500 mb-6 font-medium leading-relaxed">Please enter your new secure password.</p>
-
-            {/* Password and Confirm Password in a single row */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* New Password */}
-              <div className="relative group">
-                <input
-                  type={showResetPassword ? "text" : "password"}
-                  value={resetPassword}
-                  onChange={(e) => setResetPassword(e.target.value)}
-                  id="reset-password"
-                  className="block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10"
-                  placeholder=" "
-                  required
-                />
-                <label
-                  htmlFor="reset-password"
-                  className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-                >
-                  New Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowResetPassword(!showResetPassword)}
-                  className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
-                >
-                  {showResetPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
-                </button>
-              </div>
-
-              {/* Confirm Password */}
-              <div className="relative group">
-                <input
-                  type={showConfirmResetPassword ? "text" : "password"}
-                  value={confirmResetPassword}
-                  onChange={(e) => setConfirmResetPassword(e.target.value)}
-                  id="confirm-reset-password"
-                  disabled={!!validatePassword(resetPassword)}
-                  className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium text-black bg-transparent border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10 ${!!validatePassword(resetPassword) ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  placeholder=" "
-                  required
-                />
-                <label
-                  htmlFor="confirm-reset-password"
-                  className="absolute text-[10px] tracking-[0.2em] font-semibold text-gray-400 uppercase duration-300 transform -translate-y-4 scale-100 top-5 z-10 origin-left peer-placeholder-shown:scale-100 peer-placeholder-shown:translate-y-0 peer-focus:scale-100 peer-focus:-translate-y-4 peer-focus:text-gray-800"
-                >
-                  Confirm Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmResetPassword(!showConfirmResetPassword)}
-                  className="absolute right-0 bottom-2 text-gray-400 hover:text-black transition-colors focus:outline-none z-20 p-1"
-                >
-                  {showConfirmResetPassword ? <FiEyeOff className="text-[18px]" /> : <FiEye className="text-[18px]" />}
-                </button>
-              </div>
-            </div>
-
-            {renderPasswordRequirements(resetPassword)}
-
-            {passwordErrorMsg && (
-              <div className="text-red-500 text-[11px] font-medium animate-pulse mt-2">{passwordErrorMsg}</div>
-            )}
-
-            <button
-              type="submit"
-              disabled={!!validatePassword(resetPassword) || resetPassword !== confirmResetPassword}
-              className={`w-full py-4 mt-8 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${(!validatePassword(resetPassword) && resetPassword === confirmResetPassword) ? 'bg-black text-white hover:bg-gray-800 hover:tracking-[0.25em]' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
-            >
-              <span>Reset Password</span>
-              <FiCheck className="text-base" />
-            </button>
-
-            <div className="pt-2">
-              <button type="button" onClick={() => {
-                setStep('forgot-email');
-                setOtp(['', '', '', '']);
-                setResetPassword('');
-                setConfirmResetPassword('');
-              }} className="text-[10px] text-gray-400 hover:text-black transition-colors uppercase tracking-widest font-semibold">
-                ← Cancel
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
+                  </div>
     </div>
-  );
+            );
 }
