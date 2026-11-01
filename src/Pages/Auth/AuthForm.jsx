@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { FiArrowRight, FiCheck, FiChevronDown, FiSearch, FiEye, FiEyeOff, FiLoader } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiChevronDown, FiSearch, FiEye, FiEyeOff, FiLoader, FiMapPin, FiShield } from 'react-icons/fi';
 import { registerUserApi, verifyRegistrationOtpApi, loginUserApi, verifyLoginOtpApi, forgotPasswordApi, resetPasswordApi } from '../../Services/allApi';
 import { showAlert } from '../../Utils/alert';
+import { getCachedLocation, checkLocationPermission, requestDeviceLocation } from '../../Utils/locationUtils';
 
 const countries = [
   { name: 'India', code: '+91', iso: 'in' },
@@ -25,7 +26,13 @@ export default function AuthForm() {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode');
   const [step, setStep] = useState(initialMode === 'register' ? 'register' : 'email'); // 'email', 'otp', 'register'
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => {
+    const savedEnd = localStorage.getItem('loginLockoutEndTime');
+    if (savedEnd && parseInt(savedEnd, 10) > Date.now()) {
+      return localStorage.getItem('loginLockoutEmail') || '';
+    }
+    return '';
+  });
   const [password, setPassword] = useState('');
   const [tempToken, setTempToken] = useState('');
   const [mobileEnding, setMobileEnding] = useState('');
@@ -60,32 +67,70 @@ export default function AuthForm() {
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [isSubmittingReg, setIsSubmittingReg] = useState(false);
   const [isVerifyingRegOtp, setIsVerifyingRegOtp] = useState(false);
-  const isDev = import.meta.env.DEV;
   const [lockoutEndTime, setLockoutEndTime] = useState(() => {
-    if (import.meta.env.DEV) {
-      localStorage.removeItem('loginLockoutEndTime');
-      return null;
-    }
     const saved = localStorage.getItem('loginLockoutEndTime');
     if (saved && parseInt(saved, 10) <= Date.now()) {
       localStorage.removeItem('loginLockoutEndTime');
+      localStorage.removeItem('loginLockoutEmail');
       return null;
     }
     return saved || null;
   });
+  const [lockedEmail, setLockedEmail] = useState(() => {
+    return localStorage.getItem('loginLockoutEmail') || '';
+  });
   const [countdownStr, setCountdownStr] = useState('');
   const [otpTimer, setOtpTimer] = useState(0);
+
+  // Security Location Tracking
+  const [deviceLocation, setDeviceLocation] = useState(() => getCachedLocation());
+  const [isRequestingLocation, setIsRequestingLocation] = useState(false);
+  const [locationPermissionError, setLocationPermissionError] = useState(null);
+  const [showLocationPromptModal, setShowLocationPromptModal] = useState(false);
+
+  useEffect(() => {
+    const cached = getCachedLocation();
+    if (cached) {
+      setDeviceLocation(cached);
+      return;
+    }
+    checkLocationPermission().then((status) => {
+      if (status === 'granted') {
+        requestDeviceLocation({ timeout: 6000 })
+          .then((loc) => setDeviceLocation(loc))
+          .catch(() => {});
+      }
+    });
+  }, []);
+
+  const ensureLocationVerified = async () => {
+    if (deviceLocation) return deviceLocation;
+    const cached = getCachedLocation();
+    if (cached) {
+      setDeviceLocation(cached);
+      return cached;
+    }
+
+    setIsRequestingLocation(true);
+    setLocationPermissionError(null);
+    try {
+      const loc = await requestDeviceLocation();
+      setDeviceLocation(loc);
+      setLocationPermissionError(null);
+      setShowLocationPromptModal(false);
+      return loc;
+    } catch (err) {
+      setLocationPermissionError(err.message || 'Location access is required for account security.');
+      setShowLocationPromptModal(true);
+      throw err;
+    } finally {
+      setIsRequestingLocation(false);
+    }
+  };
 
   const genderRef = useRef(null);
   const countryRef = useRef(null);
   const otpRefs = useRef([]);
-
-  useEffect(() => {
-    if (isDev) {
-      localStorage.removeItem('loginLockoutEndTime');
-      setLockoutEndTime(null);
-    }
-  }, []);
 
   const switchToRegister = () => {
     setFormData({
@@ -110,7 +155,13 @@ export default function AuthForm() {
       password: '',
       confirmPassword: ''
     });
-    setEmail('');
+    setEmail(() => {
+      const savedEnd = localStorage.getItem('loginLockoutEndTime');
+      if (savedEnd && parseInt(savedEnd, 10) > Date.now()) {
+        return localStorage.getItem('loginLockoutEmail') || '';
+      }
+      return '';
+    });
     setPassword('');
     setAttemptsMessage(null);
     setStep('email');
@@ -152,25 +203,34 @@ export default function AuthForm() {
   useEffect(() => {
     let interval;
     if (lockoutEndTime) {
-      interval = setInterval(() => {
-        const now = new Date().getTime();
+      const updateCountdown = () => {
+        const now = Date.now();
         const end = parseInt(lockoutEndTime, 10);
         const distance = end - now;
 
         if (distance <= 0) {
-          clearInterval(interval);
+          if (interval) clearInterval(interval);
           setLockoutEndTime(null);
+          setLockedEmail('');
           localStorage.removeItem('loginLockoutEndTime');
+          localStorage.removeItem('loginLockoutEmail');
           setCountdownStr('');
         } else {
-          const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const hours = Math.floor(distance / (1000 * 60 * 60));
           const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
           const seconds = Math.floor((distance % (1000 * 60)) / 1000);
           setCountdownStr(`${hours}h ${minutes}m ${seconds}s`);
         }
-      }, 1000);
+      };
+
+      updateCountdown();
+      interval = setInterval(updateCountdown, 1000);
+    } else {
+      setCountdownStr('');
     }
-    return () => clearInterval(interval);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
   }, [lockoutEndTime]);
 
   useEffect(() => {
@@ -220,6 +280,12 @@ export default function AuthForm() {
     otpRefs.current[focusIndex]?.focus();
   };
 
+  const isCurrentEmailLocked = Boolean(
+    lockoutEndTime &&
+    lockedEmail &&
+    email.trim().toLowerCase() === lockedEmail.trim().toLowerCase()
+  );
+
   const validatePassword = (password) => {
     if (password.length < 6) return "Password must be at least 6 characters long.";
     if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter.";
@@ -256,18 +322,37 @@ export default function AuthForm() {
 
   const submitEmail = async (e) => {
     if (e) e.preventDefault();
-    if (isGeneratingOtp) return;
+    if (isGeneratingOtp || isRequestingLocation) return;
     if (!email || !password) {
       showAlert('Error', 'Please enter both email and password.', 'warning');
       return;
     }
 
+    // Require location verification for account security
+    let activeLoc = deviceLocation;
+    if (!activeLoc) {
+      try {
+        activeLoc = await ensureLocationVerified();
+      } catch (locErr) {
+        setShowLocationPromptModal(true);
+        return;
+      }
+    }
+
     setIsGeneratingOtp(true);
     try {
-      const response = await loginUserApi({ email, password });
+      const response = await loginUserApi({ 
+        email, 
+        password,
+        location: activeLoc?.location || null,
+        latitude: activeLoc?.latitude || null,
+        longitude: activeLoc?.longitude || null
+      });
       if (response.status === 200) {
         localStorage.removeItem('loginLockoutEndTime');
+        localStorage.removeItem('loginLockoutEmail');
         setLockoutEndTime(null);
+        setLockedEmail('');
         if (response.data.requiresOtp) {
           setTempToken(response.data.tempToken);
           setMobileEnding(response.data.mobileEnding);
@@ -303,17 +388,29 @@ export default function AuthForm() {
       const isLocked = error.response?.data?.isLocked || (error.response?.status === 403 && !isInactive);
 
       if (isLocked) {
-        let hours = error.response?.data?.remainingHours || 24;
-        const match = errorMessage.match(/(\d+)\s*hour/i);
-        if (match) hours = parseInt(match[1], 10);
+        let endTime;
+        if (error.response?.data?.remainingMs !== undefined) {
+          endTime = Date.now() + Number(error.response.data.remainingMs);
+        } else if (error.response?.data?.lockUntil) {
+          endTime = new Date(error.response.data.lockUntil).getTime();
+        } else {
+          let hours = error.response?.data?.remainingHours || 24;
+          const match = errorMessage.match(/(\d+)\s*hour/i);
+          if (match) hours = parseInt(match[1], 10);
+          endTime = Date.now() + hours * 60 * 60 * 1000;
+        }
 
-        const endTime = new Date().getTime() + hours * 60 * 60 * 1000;
+        const normalizedEmail = email.trim().toLowerCase();
         setLockoutEndTime(endTime.toString());
+        setLockedEmail(normalizedEmail);
         localStorage.setItem('loginLockoutEndTime', endTime.toString());
+        localStorage.setItem('loginLockoutEmail', normalizedEmail);
         setAttemptsMessage(null);
       } else {
         localStorage.removeItem('loginLockoutEndTime');
+        localStorage.removeItem('loginLockoutEmail');
         setLockoutEndTime(null);
+        setLockedEmail('');
         setAttemptsMessage(errorMessage);
       }
     } finally {
@@ -352,7 +449,13 @@ export default function AuthForm() {
 
     setIsVerifyingOtp(true);
     try {
-      const response = await verifyLoginOtpApi({ tempToken, otp: otpValue });
+      const response = await verifyLoginOtpApi({ 
+        tempToken, 
+        otp: otpValue,
+        location: deviceLocation?.location || null,
+        latitude: deviceLocation?.latitude || null,
+        longitude: deviceLocation?.longitude || null
+      });
       if (response.status === 200) {
         const { accessToken, user } = response.data;
         localStorage.setItem('medhealthinvestuser', JSON.stringify({ ...user, accessToken }));
@@ -510,13 +613,26 @@ export default function AuthForm() {
       return;
     }
 
+    let activeLoc = deviceLocation;
+    if (!activeLoc) {
+      try {
+        activeLoc = await ensureLocationVerified();
+      } catch (locErr) {
+        setShowLocationPromptModal(true);
+        return;
+      }
+    }
+
     const payload = {
       fullName: formData.name,
       email: formData.email,
       password: formData.password,
       gender: formData.gender,
       mobileNumber: cleanPhone,
-      countryCode: selectedCountry.code
+      countryCode: selectedCountry.code,
+      location: activeLoc?.location || null,
+      latitude: activeLoc?.latitude || null,
+      longitude: activeLoc?.longitude || null
     };
 
     setIsSubmittingReg(true);
@@ -551,13 +667,26 @@ export default function AuthForm() {
     setTimeout(() => otpRefs.current[0]?.focus(), 50);
 
     const cleanPhone = (formData.phone || '').replace(/\D/g, '');
+    let activeLoc = deviceLocation;
+    if (!activeLoc) {
+      try {
+        activeLoc = await ensureLocationVerified();
+      } catch (locErr) {
+        setShowLocationPromptModal(true);
+        return;
+      }
+    }
+
     const payload = {
       fullName: formData.name,
       email: formData.email,
       password: formData.password,
       gender: formData.gender,
       mobileNumber: cleanPhone,
-      countryCode: selectedCountry.code
+      countryCode: selectedCountry.code,
+      location: activeLoc?.location || null,
+      latitude: activeLoc?.latitude || null,
+      longitude: activeLoc?.longitude || null
     };
 
     setIsSubmittingReg(true);
@@ -594,7 +723,13 @@ export default function AuthForm() {
 
     setIsVerifyingRegOtp(true);
     try {
-      const response = await verifyRegistrationOtpApi({ tempToken, otp: otpValue });
+      const response = await verifyRegistrationOtpApi({ 
+        tempToken, 
+        otp: otpValue,
+        location: deviceLocation?.location || null,
+        latitude: deviceLocation?.latitude || null,
+        longitude: deviceLocation?.longitude || null
+      });
       if (response.status === 201 || response.status === 200) {
         // Success modal removed per request
         setEmail(formData.email);
@@ -679,10 +814,10 @@ export default function AuthForm() {
                 </label>
               </div>
 
-              {attemptsMessage && !lockoutEndTime && (
+              {attemptsMessage && !isCurrentEmailLocked && (
                 <div className="text-red-500 text-[11px] font-medium animate-pulse mb-1 mt-4">{attemptsMessage}</div>
               )}
-              {lockoutEndTime && (
+              {isCurrentEmailLocked && (
                 <div className="text-red-600 text-[11px] font-bold mb-1 mt-4">
                   Account locked. Try again in {countdownStr}
                 </div>
@@ -697,8 +832,8 @@ export default function AuthForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   id="password"
-                  disabled={!!lockoutEndTime}
-                  className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium ${lockoutEndTime ? 'text-gray-400 cursor-not-allowed bg-transparent' : 'text-black bg-transparent'} border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10`}
+                  disabled={isCurrentEmailLocked}
+                  className={`block w-full pt-6 pb-2 px-0 text-[15px] font-medium ${isCurrentEmailLocked ? 'text-gray-400 cursor-not-allowed bg-transparent' : 'text-black bg-transparent'} border-0 border-b border-gray-300 appearance-none focus:outline-none focus:ring-0 focus:border-black peer transition-colors pr-10`}
                   placeholder=" "
                   required
                 />
@@ -723,10 +858,38 @@ export default function AuthForm() {
                 </button>
               </div>
 
+              {/* Location Verification Requirement */}
+              {deviceLocation ? (
+                <div className="flex items-center gap-2 py-2 px-3 mt-3 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-medium animate-fade-in">
+                  <FiShield className="text-emerald-600 shrink-0 text-sm" />
+                  <span className="truncate">Security verified: <strong>{deviceLocation.location}</strong></span>
+                  <FiCheck className="text-emerald-600 shrink-0 text-sm ml-auto" />
+                </div>
+              ) : (
+                <div
+                  onClick={() => ensureLocationVerified().catch(() => {})}
+                  className="flex items-center justify-between p-2.5 mt-3 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 cursor-pointer hover:bg-amber-100/70 transition-all group"
+                  title="Click to enable location for security"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+                      <FiMapPin size={12} />
+                    </div>
+                    <div className="flex flex-col text-left">
+                      <span className="text-[11px] font-bold text-gray-900 leading-tight">Device Location Required</span>
+                      <span className="text-[10px] text-gray-500 leading-tight">Required for account security verification</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-amber-900 bg-amber-200/70 group-hover:bg-amber-300 px-2.5 py-1 rounded-md transition-colors shrink-0 ml-2">
+                    {isRequestingLocation ? 'Locating...' : 'Enable'}
+                  </span>
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={!!lockoutEndTime || isGeneratingOtp}
-                className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${lockoutEndTime
+                disabled={isCurrentEmailLocked || isGeneratingOtp}
+                className={`w-full py-4 mt-4 text-[10px] font-black tracking-[0.2em] uppercase flex items-center justify-between px-8 transition-all duration-300 ${isCurrentEmailLocked
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : isGeneratingOtp
                     ? 'bg-neutral-800 text-white/90 cursor-wait'
@@ -1084,6 +1247,34 @@ export default function AuthForm() {
                   </div>
 
                   {renderPasswordRequirements(formData.password)}
+
+                  {/* Location Verification in Register */}
+                  {deviceLocation ? (
+                    <div className="flex items-center gap-2 py-2 px-3 mt-3 mb-2 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-[11px] font-medium animate-fade-in">
+                      <FiShield className="text-emerald-600 shrink-0 text-sm" />
+                      <span className="truncate">Security verified: <strong>{deviceLocation.location}</strong></span>
+                      <FiCheck className="text-emerald-600 shrink-0 text-sm ml-auto" />
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => ensureLocationVerified().catch(() => {})}
+                      className="flex items-center justify-between p-2.5 mt-3 mb-2 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-900 cursor-pointer hover:bg-amber-100/70 transition-all group"
+                      title="Click to enable location for security"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center text-amber-600 shrink-0">
+                          <FiMapPin size={12} />
+                        </div>
+                        <div className="flex flex-col text-left">
+                          <span className="text-[11px] font-bold text-gray-900 leading-tight">Device Location Required</span>
+                          <span className="text-[10px] text-gray-500 leading-tight">Required for account security verification</span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-amber-900 bg-amber-200/70 group-hover:bg-amber-300 px-2.5 py-1 rounded-md transition-colors shrink-0 ml-2">
+                        {isRequestingLocation ? 'Locating...' : 'Enable'}
+                      </span>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
@@ -1496,7 +1687,62 @@ export default function AuthForm() {
                       </div>
                     </form>
         )}
-                  </div>
+      </div>
+
+      {/* Location Permission & Security Modal */}
+      {showLocationPromptModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="w-full max-w-sm sm:max-w-md bg-white rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-100 text-center animate-scale-up font-['Outfit']">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center mx-auto mb-4 text-amber-600 shadow-sm">
+              <FiShield size={28} />
+            </div>
+            <h3 className="text-xl font-bold text-black mb-1.5">Location Verification Required</h3>
+            <p className="text-xs text-gray-500 leading-relaxed mb-5">
+              To protect your investment account and prevent fraud, Med Health Invest requires device location verification before login.
+            </p>
+
+            {locationPermissionError && (
+              <div className="p-3 mb-5 rounded-xl bg-red-50 border border-red-200 text-left">
+                <p className="text-[11px] font-bold text-red-700 mb-0.5">Permission Required in Browser</p>
+                <p className="text-[11px] text-red-600 leading-normal">
+                  {locationPermissionError}
+                </p>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Tip: Click the tune/lock icon in your browser address bar and toggle Location to <strong>Allow</strong>.
+                </p>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={isRequestingLocation}
+                onClick={() => ensureLocationVerified().catch(() => {})}
+                className="w-full py-3.5 px-6 rounded-xl bg-black hover:bg-neutral-800 text-white font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-black/20"
+              >
+                {isRequestingLocation ? (
+                  <>
+                    <FiLoader className="animate-spin text-sm" />
+                    <span>Verifying Location...</span>
+                  </>
+                ) : (
+                  <>
+                    <FiMapPin className="text-amber-400" />
+                    <span>{locationPermissionError ? 'Retry Location Access' : 'Enable Location to Continue'}</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLocationPromptModal(false)}
+                className="w-full py-2 text-xs text-gray-400 hover:text-black font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-            );
+  );
 }
