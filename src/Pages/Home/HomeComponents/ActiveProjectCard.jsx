@@ -50,7 +50,7 @@ export default function ActiveProjectCard({ project }) {
 
   const handleInvestNowClick = () => {
     const savedUser = JSON.parse(localStorage.getItem('medhealthinvestuser'));
-    
+
     if (!savedUser || !savedUser.id) {
       Swal.fire({
         title: 'Login Required',
@@ -150,49 +150,52 @@ export default function ActiveProjectCard({ project }) {
             });
 
             if (verifyRes?.data?.success) {
-              navigate('/payment-success', { 
-                state: { 
-                  amount, 
-                  paymentId: response.razorpay_payment_id, 
-                  projectTitle: project.title, 
-                  duration: project.duration 
-                } 
+              navigate('/payment-success', {
+                  state: {
+                    amount,
+                    paymentId: response.razorpay_payment_id,
+                projectTitle: project.title,
+                duration: project.duration
+              } 
               });
-            } else {
-              throw new Error('Verification failed.');
-            }
-          } catch (err) {
-            Swal.fire({
-              icon: 'error',
-              title: 'Verification Failed',
-              text: err.message || 'Payment received but verification failed. Contact support.',
-              background: '#09090b',
-              color: '#fff',
-              confirmButtonColor: '#000000'
-            });
+          } else {
+            throw new Error('Verification failed.');
           }
-        }
+      } catch (err) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Verification Failed',
+          text: err.message || 'Payment received but verification failed. Contact support.',
+          background: '#09090b',
+          color: '#fff',
+          confirmButtonColor: '#000000'
+        });
+      }
+    }
       };
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      console.error(err);
-      const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'An error occurred.';
-      Swal.fire({
-        icon: 'error',
-        title: 'Payment Error',
-        text: errorMsg,
-        background: '#18181b',
-        color: '#fff',
-        confirmButtonColor: '#000000'
-      });
-    } finally {
-      setPaymentLoading(false);
-    }
+  const rzp = new window.Razorpay(options);
+  rzp.open();
+} catch (err) {
+  console.error(err);
+  const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'An error occurred.';
+  Swal.fire({
+    icon: 'error',
+    title: 'Payment Error',
+    text: errorMsg,
+    background: '#18181b',
+    color: '#fff',
+    confirmButtonColor: '#000000'
+  });
+} finally {
+  setPaymentLoading(false);
+}
   };
 
-  return (
+const numericRoi = parseFloat(String(project.roi || '').replace(/[^0-9.]/g, '')) || 0;
+const perAnnumRoi = numericRoi > 0 ? (numericRoi * 12).toFixed(1).replace(/\.0$/, '') : null;
+
+return (
     <div 
       ref={cardRef}
       className="group relative h-full flex flex-col bg-zinc-900 rounded-[32px] p-6 border border-white/5 hover:border-[#ccff00]/50 transition-all duration-500 hover:shadow-[0_30px_70px_rgba(0,0,0,0.5)]"
@@ -227,19 +230,29 @@ export default function ActiveProjectCard({ project }) {
         </h3>
       </div>
 
+      {/* Featured Return Spotlight Banner */}
+      <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-white/[0.03] border border-white/5 mb-3.5">
+        <div className="flex flex-col">
+          <span className="text-zinc-500 uppercase tracking-[0.2em] text-[9px] font-black mb-0.5">Target ROI</span>
+          <span className="text-[#ccff00] text-base font-black tracking-tight">{project.roi}</span>
+        </div>
+        <div className="flex flex-col border-l border-white/5 pl-3">
+          <span className="text-zinc-500 uppercase tracking-[0.2em] text-[9px] font-black mb-0.5">Per Annum</span>
+          <span className="text-[#ccff00] text-base font-black tracking-tight">
+            {perAnnumRoi ? `${perAnnumRoi}%` : '—'}
+          </span>
+        </div>
+      </div>
+
       {/* Financial Metrics */}
-      <div className="flex flex-col gap-2 mb-4 py-3 border-y border-white/5 font-bold">
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Target ROI :</span>
-          <span className="text-[#ccff00] whitespace-nowrap">{project.roi}</span>
+      <div className="flex flex-col gap-2.5 mb-4 py-3 border-y border-white/5 font-bold text-[13px]">
+        <div className="flex items-center justify-between">
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Duration :</span>
+          <span className="text-white whitespace-nowrap font-medium">{project.duration}</span>
         </div>
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Duration :</span>
-          <span className="text-white whitespace-nowrap">{project.duration}</span>
-        </div>
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Launch Date :</span>
-          <span className="text-white whitespace-nowrap">
+        <div className="flex items-center justify-between">
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Launch Date :</span>
+          <span className="text-white whitespace-nowrap font-medium">
             {project.createdAt || project.created_at ? new Date(project.createdAt || project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
           </span>
         </div>

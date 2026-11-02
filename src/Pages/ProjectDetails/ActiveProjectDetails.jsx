@@ -145,9 +145,9 @@ export default function ActiveProjectDetails() {
       socket.on('project_updated', (data) => {
          console.log('Detail page real-time update:', data);
          if (project && data.projectId === project.id) {
-            setProject(prev => ({ 
-               ...prev, 
-               collected: parseFloat(data.collectedAmount) 
+            setProject(prev => ({
+               ...prev,
+               collected: parseFloat(data.collectedAmount)
             }));
             fetchUserInvestments();
          }
@@ -212,7 +212,7 @@ export default function ActiveProjectDetails() {
                const base64Url = savedUser.accessToken.split('.')[1];
                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                const payload = JSON.parse(window.atob(base64));
-               
+
                const expTimestamp = payload.exp * 1000;
                const now = Date.now();
                const remainingMins = (expTimestamp - now) / (1000 * 60);
@@ -271,13 +271,13 @@ export default function ActiveProjectDetails() {
 
                   if (verifyRes?.data?.success) {
                      fetchUserInvestments();
-                     navigate('/payment-success', { 
-                        state: { 
-                           amount, 
-                           paymentId: response.razorpay_payment_id, 
-                           projectTitle: project.title, 
-                           duration: project.duration 
-                        } 
+                     navigate('/payment-success', {
+                        state: {
+                           amount,
+                           paymentId: response.razorpay_payment_id,
+                           projectTitle: project.title,
+                           duration: project.duration
+                        }
                      });
                   } else {
                      throw new Error('Verification failed.');
@@ -342,9 +342,9 @@ export default function ActiveProjectDetails() {
    let daysRemaining = 0;
    let maturityDateStr = '';
    if (project.status === 'ONGOING') {
-      const maturityDate = project.completionDate ? new Date(project.completionDate) : 
-                          (project.ongoingStartDate ? new Date(new Date(project.ongoingStartDate).getTime() + (parseInt(project.duration) * 30 * 24 * 60 * 60 * 1000)) : null);
-      
+      const maturityDate = project.completionDate ? new Date(project.completionDate) :
+         (project.ongoingStartDate ? new Date(new Date(project.ongoingStartDate).getTime() + (parseInt(project.duration) * 30 * 24 * 60 * 60 * 1000)) : null);
+
       if (maturityDate) {
          const now = new Date();
          const diffTime = maturityDate - now;
@@ -386,20 +386,20 @@ export default function ActiveProjectDetails() {
                   {/* Main Active Media */}
                   <div className="relative w-full aspect-[16/10] rounded-[28px] overflow-hidden bg-zinc-900 border border-white/10 group shadow-2xl">
                      {activeMedia?.type === 'video' ? (
-                        <video 
-                           src={activeMedia.url} 
-                           autoPlay 
-                           loop 
-                           muted 
-                           playsInline 
-                           className="w-full h-full object-cover" 
+                        <video
+                           src={activeMedia.url}
+                           autoPlay
+                           loop
+                           muted
+                           playsInline
+                           className="w-full h-full object-cover"
                         />
                      ) : (
-                        <img 
-                           src={activeMedia?.url} 
-                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                           alt={project.title} 
-                           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop'; }} 
+                        <img
+                           src={activeMedia?.url}
+                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                           alt={project.title}
+                           onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop'; }}
                         />
                      )}
                   </div>
@@ -413,11 +413,11 @@ export default function ActiveProjectDetails() {
                               onClick={() => setActiveMedia(media)}
                               className={`relative w-24 md:w-28 h-16 md:h-20 rounded-xl overflow-hidden bg-zinc-900 border-2 cursor-pointer transition-all shrink-0 snap-center ${activeMedia?.url === media.url ? 'border-[#ccff00]' : 'border-white/5 opacity-60 hover:opacity-100'}`}
                            >
-                              <img 
-                                 src={media.thumbnail} 
-                                 className="w-full h-full object-cover" 
-                                 alt="Thumb" 
-                                 onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop'; }} 
+                              <img
+                                 src={media.thumbnail}
+                                 className="w-full h-full object-cover"
+                                 alt="Thumb"
+                                 onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?q=80&w=1200&auto=format&fit=crop'; }}
                               />
                            </div>
                         ))}
@@ -509,14 +509,14 @@ export default function ActiveProjectDetails() {
                      </div>
 
                      <div className="relative w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden">
-                        <div 
-                           className="absolute top-0 left-0 h-full bg-[#ccff00] transition-all duration-1000" 
-                           style={{ width: isLoaded ? `${progress}%` : '0%' }} 
+                        <div
+                           className="absolute top-0 left-0 h-full bg-[#ccff00] transition-all duration-1000"
+                           style={{ width: isLoaded ? `${progress}%` : '0%' }}
                         />
                      </div>
 
                      {project.status === 'ACTIVE' ? (
-                        <button 
+                        <button
                            onClick={handleInvestNowClick}
                            disabled={paymentLoading}
                            className="group/btn relative w-full py-3.5 bg-white text-black rounded-xl text-xs font-bold tracking-[0.15em] uppercase overflow-hidden active:scale-[0.98] transition-all duration-300 shadow-xl disabled:opacity-70 disabled:cursor-not-allowed"
@@ -571,7 +571,7 @@ export default function ActiveProjectDetails() {
                            <span className="text-xl md:text-2xl font-bold text-black">{project.roi}</span>
                         </div>
                         <span className="text-[10px] font-semibold text-black/70 uppercase tracking-wider bg-black/5 px-2.5 py-1 rounded-md border border-black/5">
-                           {(parseFloat(project.roi) * 12).toFixed(1).replace(/\.0$/, '')}% Yearly ROI
+                           {(parseFloat(project.roi) * 12).toFixed(1).replace(/\.0$/, '')}% Per Annum
                         </span>
                      </div>
 
@@ -677,7 +677,7 @@ export default function ActiveProjectDetails() {
                            <div className="flex items-center gap-2 bg-black/5 px-3 py-1.5 rounded-full border border-black/5 self-start sm:self-auto">
                               <FiTrendingUp className="text-emerald-600 text-sm" />
                               <span className="text-xs font-bold text-black/80 font-mono">
-                                 {cleanRoiText} / Month
+                                 {cleanRoiText}
                               </span>
                            </div>
                         </div>
@@ -711,7 +711,7 @@ export default function ActiveProjectDetails() {
                                           value={investmentInput}
                                           onChange={(e) => setInvestmentInput(e.target.value)}
                                           placeholder="Enter the amount"
-                                          className="w-48 sm:w-56 pl-8 pr-4 py-3 bg-white border border-black/15 rounded-xl text-lg md:text-xl font-extrabold text-black font-mono focus:border-black focus:ring-1 focus:ring-black outline-none transition-all shadow-sm"
+                                          className="w-48 sm:w-66 pl-8 pr-4 py-3 bg-white border border-black/15 rounded-xl text-lg md:text-xl font-extrabold text-black font-mono focus:border-black focus:ring-1 focus:ring-black outline-none transition-all shadow-sm"
                                        />
                                     </div>
                                     <button
@@ -742,11 +742,10 @@ export default function ActiveProjectDetails() {
                                              key={preset}
                                              type="button"
                                              onClick={() => setInvestmentInput(preset.toString())}
-                                             className={`text-xs md:text-sm font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer font-mono border ${
-                                                isSelected
-                                                   ? 'bg-black text-white border-black shadow-md'
-                                                   : 'bg-white hover:bg-black/5 text-black/70 hover:text-black border-black/10'
-                                             }`}
+                                             className={`text-xs md:text-sm font-bold px-4 py-2.5 rounded-xl transition-all cursor-pointer font-mono border ${isSelected
+                                                ? 'bg-black text-white border-black shadow-md'
+                                                : 'bg-white hover:bg-black/5 text-black/70 hover:text-black border-black/10'
+                                                }`}
                                           >
                                              <span className="font-sans mr-0.5">₹</span>{(preset / 1000).toFixed(0)}k
                                           </button>
@@ -1033,11 +1032,11 @@ export default function ActiveProjectDetails() {
 
          {/* Proof Image Modal */}
          {isProofModalOpen && selectedProof && (
-            <div 
+            <div
                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
                onClick={() => setIsProofModalOpen(false)}
             >
-               <div 
+               <div
                   className="bg-[#121214] border border-white/10 rounded-2xl max-w-2xl w-full p-4 relative shadow-2xl"
                   onClick={e => e.stopPropagation()}
                >
@@ -1046,18 +1045,18 @@ export default function ActiveProjectDetails() {
                         <FiPaperclip className="text-[#ccff00]" />
                         Settlement Payment Proof
                      </h3>
-                     <button 
-                        onClick={() => setIsProofModalOpen(false)} 
+                     <button
+                        onClick={() => setIsProofModalOpen(false)}
                         className="text-zinc-400 hover:text-white transition-colors"
                      >
                         <HiX className="text-lg" />
                      </button>
                   </div>
                   <div className="max-h-[70vh] overflow-auto rounded-xl bg-black flex items-center justify-center p-2">
-                     <img 
-                        src={selectedProof} 
-                        alt="Settlement Proof" 
-                        className="max-h-[65vh] w-auto object-contain rounded-lg" 
+                     <img
+                        src={selectedProof}
+                        alt="Settlement Proof"
+                        className="max-h-[65vh] w-auto object-contain rounded-lg"
                      />
                   </div>
                   <div className="mt-3 flex justify-end">
@@ -1072,7 +1071,7 @@ export default function ActiveProjectDetails() {
             </div>
          )}
 
-         <InvestmentModal 
+         <InvestmentModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             onConfirm={handleInvestNow}

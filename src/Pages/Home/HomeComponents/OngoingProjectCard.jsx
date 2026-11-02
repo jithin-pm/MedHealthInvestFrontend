@@ -27,6 +27,9 @@ export default function OngoingProjectCard({ project }) {
     }
   }, [])
 
+  const numericYield = parseFloat(String(project.yield || '').replace(/[^0-9.]/g, '')) || 0;
+  const perAnnumYield = numericYield > 0 ? (numericYield * 12).toFixed(1).replace(/\.0$/, '') : null;
+
   return (
     <div 
       ref={cardRef}
@@ -46,22 +49,31 @@ export default function OngoingProjectCard({ project }) {
         <h3 className="text-2xl font-bold text-white tracking-tight leading-tight mb-2">
           {project.title}
         </h3>
+      </div>
 
+      {/* Featured Yield Spotlight Banner */}
+      <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-white/[0.03] border border-white/5 mb-3.5">
+        <div className="flex flex-col">
+          <span className="text-zinc-500 uppercase tracking-[0.2em] text-[9px] font-black mb-0.5">Current Yield</span>
+          <span className="text-[#ccff00] text-base font-black tracking-tight">{project.yield}</span>
+        </div>
+        <div className="flex flex-col border-l border-white/5 pl-3">
+          <span className="text-zinc-500 uppercase tracking-[0.2em] text-[9px] font-black mb-0.5">Per Annum</span>
+          <span className="text-[#ccff00] text-base font-black tracking-tight">
+            {perAnnumYield ? `${perAnnumYield}%` : '—'}
+          </span>
+        </div>
       </div>
 
       {/* Financial Metrics - Detailed Data Grid */}
-      <div className="flex flex-col gap-2 mb-4 py-3 border-y border-white/5 font-bold">
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-27 shrink-0">Current Yield :</span>
-          <span className="text-[#ccff00] whitespace-nowrap">{project.yield}</span>
+      <div className="flex flex-col gap-2.5 mb-4 py-3 border-y border-white/5 font-bold text-[13px]">
+        <div className="flex items-center justify-between">
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Maturity :</span>
+          <span className="text-white whitespace-nowrap font-medium">{project.maturityDate}</span>
         </div>
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Maturity :</span>
-          <span className="text-white whitespace-nowrap">{project.maturityDate}</span>
-        </div>
-        <div className="flex items-center gap-2 text-[14px]">
-          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black w-24 shrink-0">Launch Date :</span>
-          <span className="text-white whitespace-nowrap">
+        <div className="flex items-center justify-between">
+          <span className="text-zinc-500 uppercase tracking-widest text-[10px] font-black">Launch Date :</span>
+          <span className="text-white whitespace-nowrap font-medium">
             {project.createdAt || project.created_at ? new Date(project.createdAt || project.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
           </span>
         </div>
