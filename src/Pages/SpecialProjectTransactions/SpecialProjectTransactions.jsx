@@ -216,7 +216,6 @@ export default function SpecialProjectTransactions() {
       });
     }
 
-    // Only display interest if admin actually sent interest to user (payout made)
     for (const accrual of accruals) {
       const matchedPayout = interestPayouts.find(p => p.monthKey === accrual.monthKey && !p.used) || interestPayouts.find(p => !p.used);
       if (matchedPayout) {
@@ -233,6 +232,20 @@ export default function SpecialProjectTransactions() {
           isInitial: false,
           isSkipped: false,
           description: matchedPayout.description || 'Interest Payback'
+        });
+      } else {
+        rows.push({
+          id: accrual.id,
+          monthKey: accrual.monthKey,
+          displayDate: accrual.date,
+          interest: accrual.amount,
+          capitalPaid: 0,
+          paid: 0,
+          status: 'INTEREST CREDITED',
+          attachment: null,
+          isInitial: false,
+          isSkipped: false,
+          description: accrual.description || 'Monthly Interest'
         });
       }
     }
@@ -295,9 +308,15 @@ export default function SpecialProjectTransactions() {
     return Math.max(0, amountInvested - remaining);
   })();
 
-  const totalInterestCredited = ledgerData
-    .filter(l => l.transactionType === 'PAYOUT_MADE' && (l.description === 'Interest Payback' || !l.description?.toLowerCase().includes('capital')))
-    .reduce((sum, l) => sum + parseFloat(l.amount || 0), 0);
+  const totalInterestCredited = (() => {
+    const totalAccrued = (ledgerData || [])
+      .filter(l => l.transactionType === 'INTEREST_ACCRUED')
+      .reduce((sum, l) => sum + parseFloat(l.amount || 0), 0);
+    const totalPayouts = (ledgerData || [])
+      .filter(l => l.transactionType === 'PAYOUT_MADE' && (l.description === 'Interest Payback' || !l.description?.toLowerCase().includes('capital')))
+      .reduce((sum, l) => sum + parseFloat(l.amount || 0), 0);
+    return Math.max(totalAccrued, totalPayouts);
+  })();
 
   const remainingPrincipal = parseFloat(
     investmentRecord?.remainingCapital !== undefined ? investmentRecord.remainingCapital : (amountInvested - capitalReturned)
