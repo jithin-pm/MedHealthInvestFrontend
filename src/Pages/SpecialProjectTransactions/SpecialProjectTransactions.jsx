@@ -181,8 +181,8 @@ export default function SpecialProjectTransactions() {
     const investDate = initialLedger
       ? new Date(initialLedger.transactionDate)
       : (investmentRecord?.created_at || investmentRecord?.createdAt || project?.ongoingStartDate || project?.created_at
-          ? new Date(investmentRecord?.created_at || investmentRecord?.createdAt || project?.ongoingStartDate || project?.created_at)
-          : null);
+        ? new Date(investmentRecord?.created_at || investmentRecord?.createdAt || project?.ongoingStartDate || project?.created_at)
+        : null);
 
     if (investDate) {
       const investMonthKey = `${investDate.getFullYear()}-${investDate.getMonth()}`;
@@ -199,21 +199,25 @@ export default function SpecialProjectTransactions() {
         description: 'Initial Investment'
       });
 
-      // 2. Grace Period entry (July 2026 cooling buffer)
-      const graceDate = new Date(investDate.getFullYear(), investDate.getMonth() + 1, 1, 12, 0, 0);
-      const graceMonthKey = `${graceDate.getFullYear()}-${graceDate.getMonth()}`;
-      rows.push({
-        id: 'grace-period',
-        monthKey: graceMonthKey,
-        displayDate: graceDate,
-        interest: 0,
-        capitalPaid: 0,
-        status: 'GRACE_PERIOD',
-        attachment: null,
-        isInitial: false,
-        isSkipped: true,
-        description: 'Grace Period (No Return)'
-      });
+      // 2. Grace Period entry (only displayed once grace period first day arrives, not in advance)
+      const graceStartDate = new Date(investDate.getFullYear(), investDate.getMonth() + 1, 1, 0, 0, 0, 0);
+      const now = new Date();
+      if (now >= graceStartDate) {
+        const graceDate = new Date(investDate.getFullYear(), investDate.getMonth() + 1, 1, 12, 0, 0);
+        const graceMonthKey = `${graceDate.getFullYear()}-${graceDate.getMonth()}`;
+        rows.push({
+          id: 'grace-period',
+          monthKey: graceMonthKey,
+          displayDate: graceDate,
+          interest: 0,
+          capitalPaid: 0,
+          status: 'GRACE_PERIOD',
+          attachment: null,
+          isInitial: false,
+          isSkipped: true,
+          description: 'Grace Period (No Return)'
+        });
+      }
     }
 
     for (const accrual of accruals) {
@@ -731,7 +735,7 @@ export default function SpecialProjectTransactions() {
 
         {/* ─────────────────── CLASSY DOCUMENT PREVIEW MODAL ─────────────────── */}
         {isImageModalOpen && selectedImage && (
-          <div 
+          <div
             onClick={() => setIsImageModalOpen(false)}
             className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 bg-black/90 backdrop-blur-md animate-in fade-in duration-200"
           >
@@ -745,7 +749,7 @@ export default function SpecialProjectTransactions() {
               <HiX className="text-2xl" />
             </button>
 
-            <div 
+            <div
               onClick={(e) => e.stopPropagation()}
               className="relative w-full max-w-4xl max-h-[90vh] flex flex-col bg-zinc-950 border border-white/10 rounded-3xl overflow-hidden shadow-[0_0_80px_rgba(0,0,0,0.9)] z-[130]"
             >
